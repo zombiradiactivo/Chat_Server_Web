@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 from app.database import get_db
 from app.database import User, Channel, ChannelType, CustomApp, TerminalSession, TerminalOutput
 from app.auth import get_current_user
@@ -8,6 +9,13 @@ from app.schemas import CustomAppCreate, CustomAppResponse, TerminalOutputRespon
 from datetime import datetime
 
 router = APIRouter(prefix="/custom-apps", tags=["custom-apps"])
+
+
+class CustomAppUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    command: Optional[str] = None
+    working_directory: Optional[str] = None
 
 
 @router.post("/", response_model=CustomAppResponse)
@@ -76,6 +84,38 @@ async def get_custom_app(app_id: int, current_user: User = Depends(get_current_u
     return app
 
 
+@router.put("/{app_id}", response_model=CustomAppResponse)
+async def update_custom_app(app_id: int, app_data: CustomAppUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    app = db.query(CustomApp).filter(CustomApp.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="App not found")
+    
+    channel = db.query(Channel).filter(Channel.id == app.channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    
+    if channel.server_id:
+        from app.database import Server
+        server = db.query(Server).filter(Server.id == channel.server_id).first()
+        if not server or server.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    elif channel.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    if app_data.name is not None:
+        app.name = app_data.name
+    if app_data.description is not None:
+        app.description = app_data.description
+    if app_data.command is not None:
+        app.command = app_data.command
+    if app_data.working_directory is not None:
+        app.working_directory = app_data.working_directory
+    
+    db.commit()
+    db.refresh(app)
+    return app
+
+
 @router.delete("/{app_id}")
 async def delete_custom_app(app_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     app = db.query(CustomApp).filter(CustomApp.id == app_id).first()
@@ -87,7 +127,7 @@ async def delete_custom_app(app_id: int, current_user: User = Depends(get_curren
         raise HTTPException(status_code=404, detail="Channel not found")
     
     if channel.server_id:
-        from app.models import Server
+        from app.database import Server
         server = db.query(Server).filter(Server.id == channel.server_id).first()
         if not server or server.owner_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized")

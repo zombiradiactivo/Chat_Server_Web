@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketDisconnect
 from app.routers import auth_router, servers_router, channels_router, direct_messages_router, invitations_router, custom_apps_router, media_router
 from app.websocket import voice
 from app.config import settings
@@ -25,6 +26,9 @@ app.include_router(invitations_router.router, prefix="/api")
 app.include_router(custom_apps_router.router, prefix="/api")
 app.include_router(media_router.router, prefix="/api")
 
+if os.path.exists(settings.MEDIA_DIR):
+    app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -47,6 +51,33 @@ async def voice_websocket(websocket: WebSocket, channel_id: int, token: str):
         await voice.handle_voice_websocket(websocket, user_id, channel_id, db)
     finally:
         db.close()
+
+
+@app.websocket("/ws/chat/{channel_id}")
+async def chat_websocket(websocket: WebSocket, channel_id: int, token: str):
+    from app.auth import decode_token
+    from app.websocket.voice import get_chat_manager
+    
+    payload = decode_token(token)
+    if not payload:
+        await websocket.close()
+        return
+    
+    user_id = payload.get("sub")
+    chat_manager = get_chat_manager()
+    
+    try:
+        await chat_manager.connect_chat_channel(websocket, user_id, channel_id)
+        
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+                
+    except WebSocketDisconnect:
+        chat_manager.disconnect_chat_channel(user_id)
+    except Exception:
+        chat_manager.disconnect_chat_channel(user_id)
 
 
 @app.websocket("/ws/terminal/{app_id}")

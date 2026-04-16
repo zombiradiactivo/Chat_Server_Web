@@ -89,3 +89,4 @@ banners/
 # Archivos de test
 tests/test.db
 tests/integration_test.db
+/media

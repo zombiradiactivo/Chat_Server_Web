@@ -79,6 +79,7 @@ class ServerResponse(ServerBase):
     encryption_mode: EncryptionMode
     owner_id: int
     created_at: datetime
+    channels: List["ChannelResponse"] = []
 
     class Config:
         from_attributes = True
@@ -91,6 +92,7 @@ class ServerMemberResponse(BaseModel):
     joined_at: datetime
     user: UserResponse
     roles: List[RoleResponse] = []
+    server: Optional[ServerResponse] = None
 
     class Config:
         from_attributes = True

@@ -10,6 +10,7 @@ from app.auth import get_current_user
 from app.schemas import (
     ChannelCreate, ChannelResponse, ChannelUpdate, MessageCreate, MessageResponse, AttachmentResponse
 )
+from app.websocket.voice import get_chat_manager
 from app.config import settings
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -132,6 +133,8 @@ async def get_messages(channel_id: int, limit: int = 50, offset: int = 0, curren
 
 @router.post("/{channel_id}/messages", response_model=MessageResponse)
 async def create_message(channel_id: int, message_data: MessageCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    chat_manager = get_chat_manager()
+    
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -148,6 +151,25 @@ async def create_message(channel_id: int, message_data: MessageCreate, current_u
     db.add(message)
     db.commit()
     db.refresh(message)
+    
+    await chat_manager.broadcast_to_channel(channel_id, {
+        "type": "new_message",
+        "message": {
+            "id": message.id,
+            "content": message.content,
+            "message_type": message.message_type,
+            "channel_id": message.channel_id,
+            "author_id": message.author_id,
+            "created_at": message.created_at.isoformat() if message.created_at else None,
+            "author": {
+                "id": current_user.id,
+                "username": current_user.username,
+                "display_name": current_user.display_name,
+                "avatar_url": current_user.avatar_url
+            }
+        }
+    }, exclude_user=current_user.id)
+    
     return message
 
 

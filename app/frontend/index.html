@@ -8,44 +8,56 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; }
         
-        #app { display: flex; height: 100vh; }
+        #app { display: flex; height: 100vh; min-height: 0; }
         
-        .sidebar { width: 72px; background: #16213e; display: flex; flex-direction: column; align-items: center; padding: 12px 0; }
+        .sidebar { width: 72px; background: #16213e; display: flex; flex-direction: column; align-items: center; padding: 12px 0; justify-content: space-between; }
+        .sidebar-top { display: flex; flex-direction: column; align-items: center; }
+        .sidebar-bottom { display: flex; flex-direction: column; align-items: center; padding-bottom: 12px; }
         .sidebar-btn { width: 48px; height: 48px; border-radius: 50%; background: #0f3460; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.2s; }
         .sidebar-btn:hover { background: #e94560; }
         .sidebar-btn.active { background: #e94560; }
+        .server-icon-small { width: 48px; height: 48px; border-radius: 50%; background: #0f3460; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; transition: 0.2s; }
+        .server-icon-small:hover { background: #e94560; border-radius: 16px; }
+        .server-icon-small.active { background: #e94560; border-radius: 16px; }
         
         .server-sidebar { width: 240px; background: #16213e; padding: 16px; overflow-y: auto; }
-        .server-item { display: flex; align-items: center; padding: 10px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; }
-        .server-item:hover { background: #0f3460; }
-        .server-item.active { background: #e94560; }
-        .server-icon { width: 40px; height: 40px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-weight: bold; }
-        
-        .main-content { flex: 1; display: flex; flex-direction: column; }
-        
-        .channel-sidebar { width: 220px; background: #1a1a2e; padding: 16px; border-right: 1px solid #0f3460; }
+        .server-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .server-options-btn { background: none; border: none; color: #8e9aaf; cursor: pointer; font-size: 18px; padding: 4px; }
+        .server-options-btn:hover { color: #eee; }
+        .server-options-menu { position: fixed; background: #0f3460; border-radius: 8px; padding: 8px 0; min-width: 180px; z-index: 100; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .server-options-menu.show { display: block; }
+        .server-option-item { padding: 10px 16px; cursor: pointer; color: #ccc; }
+        .server-option-item:hover { background: #16213e; color: #eee; }
         .channel-category { color: #8e9aaf; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; margin-top: 16px; font-weight: bold; }
         .channel-item { display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: #8e9aaf; }
         .channel-item:hover { background: #16213e; color: #eee; }
         .channel-item.active { background: #16213e; color: #eee; }
         .channel-item .icon { margin-right: 8px; }
         
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: #1a1a2e; }
-        .chat-header { padding: 16px; border-bottom: 1px solid #0f3460; display: flex; align-items: center; }
+        .main-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        
+        .channel-category { color: #8e9aaf; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; margin-top: 16px; font-weight: bold; }
+        .channel-item { display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: #8e9aaf; }
+        .channel-item:hover { background: #16213e; color: #eee; }
+        .channel-item.active { background: #16213e; color: #eee; }
+        .channel-item .icon { margin-right: 8px; }
+        
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #1a1a2e; min-height: 0; }
+        .chat-header { padding: 16px; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
         .chat-header h2 { font-size: 18px; }
         
-        .messages { flex: 1; padding: 16px; overflow-y: auto; }
+        .messages { flex: 1; padding: 16px; overflow-y: auto; min-height: 0; }
         .message { display: flex; margin-bottom: 16px; }
-        .message-avatar { width: 40px; height: 40px; border-radius: 50%; background: #0f3460; margin-right: 12px; }
-        .message-content { flex: 1; }
+        .message-avatar { width: 40px; height: 40px; border-radius: 50%; background: #0f3460; margin-right: 12px; flex-shrink: 0; }
+        .message-content { flex: 1; min-width: 0; }
         .message-header { display: flex; align-items: baseline; gap: 8px; }
         .message-author { font-weight: bold; }
         .message-time { color: #8e9aaf; font-size: 12px; }
-        .message-text { margin-top: 4px; color: #ccc; }
+        .message-text { margin-top: 4px; color: #ccc; word-wrap: break-word; }
         .message-attachments { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
         .attachment { background: #0f3460; padding: 8px 12px; border-radius: 4px; }
         
-        .message-input { padding: 16px; border-top: 1px solid #0f3460; display: flex; gap: 8px; }
+        .message-input { padding: 16px; border-top: 1px solid #0f3460; display: flex; gap: 8px; flex-shrink: 0; }
         .message-input input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #0f3460; color: #eee; }
         .message-input button { padding: 12px 24px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer; }
         
@@ -58,7 +70,7 @@
         .login-tab { flex: 1; padding: 12px; text-align: center; background: #0f3460; border-radius: 8px; cursor: pointer; }
         .login-tab.active { background: #e94560; }
         
-        .voice-overlay { position: fixed; bottom: 0; right: 0; width: 320px; background: #16213e; border-radius: 16px 16px 0 0; padding: 16px; z-index: 50; }
+        .voice-overlay { position: fixed; bottom: 0; right: 0; width: 400px; background: #16213e; border-radius: 16px 16px 0 0; padding: 16px; z-index: 50; }
         .voice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .voice-users { display: flex; flex-wrap: wrap; gap: 8px; }
         .voice-user { width: 48px; height: 48px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; }
@@ -81,39 +93,80 @@
         .terminal-input input { flex: 1; padding: 12px; background: #0d1117; border: none; color: #58a6ff; font-family: monospace; }
         .terminal-input button { padding: 12px 24px; background: #238636; border: none; color: white; }
         
+        .settings-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; }
+        .settings-modal.show { display: flex; }
+        .settings-panel { width: 600px; max-height: 80vh; background: #16213e; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+        .settings-header { padding: 16px 20px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
+        .settings-header h2 { font-size: 20px; }
+        .settings-close { background: none; border: none; color: #8e9aaf; font-size: 24px; cursor: pointer; }
+        .settings-close:hover { color: #eee; }
+        .settings-tabs { display: flex; border-bottom: 1px solid #0f3460; }
+        .settings-tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #8e9aaf; background: none; border: none; }
+        .settings-tab:hover { background: #0f3460; }
+        .settings-tab.active { color: #eee; background: #0f3460; }
+        .settings-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .settings-section { margin-bottom: 24px; }
+        .settings-section h3 { margin-bottom: 12px; color: #8e9aaf; font-size: 12px; text-transform: uppercase; }
+        .settings-input { width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 6px; border: 1px solid #0f3460; background: #0f3460; color: #eee; }
+        .settings-label { display: block; margin-bottom: 6px; color: #ccc; font-size: 14px; }
+        .role-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #0f3460; border-radius: 6px; margin-bottom: 8px; }
+        .role-color { width: 20px; height: 20px; border-radius: 50%; margin-right: 10px; }
+        .member-item { display: flex; align-items: center; padding: 10px; background: #0f3460; border-radius: 6px; margin-bottom: 8px; }
+        .member-avatar { width: 36px; height: 36px; border-radius: 50%; background: #16213e; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
+        
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <div id="app">
         <div class="sidebar">
-            <div class="sidebar-btn" onclick="showHome()" title="Home">🏠</div>
-            <div class="sidebar-btn" onclick="showDMs()" title="Mensajes">💬</div>
+            <div class="sidebar-top">
+                <div class="sidebar-btn" onclick="showHome()" title="Home">🏠</div>
+                <div class="sidebar-btn" onclick="showDMs()" title="Mensajes">💬</div>
+                <div id="serverListSidebar"></div>
+            </div>
+            <div class="sidebar-bottom">
+                <div class="sidebar-btn" onclick="showJoinServer()" title="Unirse a Servidor">➕</div>
+                <div class="sidebar-btn" onclick="showCreateServer()" title="Crear Servidor">⚙️</div>
+            </div>
         </div>
         
         <div class="server-sidebar" id="serverSidebar">
-            <div style="margin-bottom: 16px;">
-                <button onclick="showCreateServer()" style="width: 100%; padding: 12px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer;">+ Crear Servidor</button>
+            <div class="server-header-row" style="margin-bottom: 16px;">
+                <h3 id="currentServerName">Selecciona un servidor</h3>
+                <div style="position: relative;">
+                    <button class="server-options-btn" onclick="toggleServerOptions()">⚙️</button>
+                    <div id="serverOptionsMenu" class="server-options-menu">
+                        <div class="server-option-item" onclick="showServerSettings()">Configuración</div>
+                        <div class="server-option-item" onclick="showInviteLink()">Copiar invitación</div>
+                        <div class="server-option-item" onclick="leaveCurrentServer()">Salir del servidor</div>
+                    </div>
+                </div>
             </div>
-            <div id="serverList"></div>
+            <button onclick="showCreateChannel()" style="margin-bottom: 16px; width: 100%; padding: 8px; background: #0f3460; border: none; border-radius: 4px; color: white; cursor: pointer;">+ Crear Canal</button>
+            <div id="channelList"></div>
         </div>
         
         <div class="main-content">
-            <div class="channel-sidebar" id="channelSidebar">
-                <div id="serverHeader" style="margin-bottom: 16px;">
-                    <h3 id="currentServerName">Selecciona un servidor</h3>
-                </div>
-                <div id="channelList"></div>
-            </div>
-            
             <div class="chat-area">
                 <div class="chat-header">
                     <h2 id="currentChannelName">Bienvenido</h2>
                 </div>
                 <div class="messages" id="messages"></div>
                 <div class="message-input" id="messageInputArea">
+                    <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
+                    <button onclick="document.getElementById('fileInput').click()" style="padding: 12px; background: #0f3460; border: none; border-radius: 8px; color: #8e9aaf; cursor: pointer;">📎</button>
                     <input type="text" id="messageInput" placeholder="Escribe un mensaje..." onkeypress="handleMessageKeypress(event)">
                     <button onclick="sendMessage()">Enviar</button>
+                </div>
+                <div id="uploadProgress" style="display: none; padding: 8px 16px; background: #0f3460; border-top: 1px solid #16213e;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span id="uploadFileName" style="color: #8e9aaf; font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                        <span id="uploadPercent" style="color: #eee; font-size: 12px;">0%</span>
+                    </div>
+                    <div style="height: 4px; background: #16213e; border-radius: 2px; margin-top: 4px; overflow: hidden;">
+                        <div id="progressBar" style="height: 100%; background: #e94560; width: 0%; transition: width 0.2s;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -142,14 +195,52 @@
     
     <div class="voice-overlay hidden" id="voiceOverlay">
         <div class="voice-header">
-            <span>Canale de Voz</span>
-            <button onclick="leaveVoice()" style="background: none; border: none; color: white; cursor: pointer;">✕</button>
+            <span id="voiceChannelName">Canal de Voz</span>
+            <button onclick="leaveVoiceChannel()" style="background: #e94560; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer;">✕ Salir</button>
         </div>
-        <div class="voice-users" id="voiceUsers"></div>
-        <div class="voice-controls">
-            <button class="voice-btn" onclick="toggleMute()" id="muteBtn">🎤</button>
-            <button class="voice-btn" onclick="toggleCamera()" id="cameraBtn">📷</button>
-            <button class="voice-btn" onclick="toggleScreenShare()" id="screenBtn">🖥️</button>
+        <div class="voice-grid" id="voiceGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; padding: 8px; max-height: 300px; overflow-y: auto;"></div>
+        <div class="voice-controls" style="padding: 12px; background: #0f3460; display: flex; justify-content: center; gap: 16px; border-radius: 0 0 16px 0;">
+            <button onclick="toggleMute()" id="muteBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Silenciar">🎤</button>
+            <button onclick="toggleCamera()" id="cameraBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Cámara">📷</button>
+            <button onclick="toggleScreenShare()" id="screenBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Compartir pantalla">🖥️</button>
+            <button onclick="showVoiceSettings()" id="settingsBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Configuración">⚙️</button>
+        </div>
+    </div>
+    
+    <div id="voiceSettingsPanel" style="display: none; position: fixed; bottom: 80px; right: 20px; background: #16213e; border-radius: 8px; padding: 16px; z-index: 60; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+        <h4 style="margin-bottom: 12px; color: #eee;">Configuración de Voz</h4>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; color: #8e9aaf; font-size: 12px; margin-bottom: 4px;">Micrófono</label>
+            <select id="audioInputSelect" onchange="changeAudioInput(this.value)" style="width: 100%; padding: 8px; background: #0f3460; border: none; border-radius: 4px; color: #eee;"></select>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; color: #8e9aaf; font-size: 12px; margin-bottom: 4px;">Cámara</label>
+            <select id="videoInputSelect" onchange="changeVideoInput(this.value)" style="width: 100%; padding: 8px; background: #0f3460; border: none; border-radius: 4px; color: #eee;"></select>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; color: #8e9aaf; font-size: 12px; margin-bottom: 4px;">Calidad de Video</label>
+            <select id="videoQualitySelect" onchange="changeVideoQuality(this.value)" style="width: 100%; padding: 8px; background: #0f3460; border: none; border-radius: 4px; color: #eee;">
+                <option value="low">Baja (320p)</option>
+                <option value="medium" selected>Media (480p)</option>
+                <option value="high">Alta (720p)</option>
+                <option value="hd">HD (1080p)</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2 id="settingsTitle">Configuración del Servidor</h2>
+                <button class="settings-close" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="settings-tabs">
+                <button class="settings-tab active" onclick="showSettingsTab('general')">General</button>
+                <button class="settings-tab" onclick="showSettingsTab('roles')">Roles</button>
+                <button class="settings-tab" onclick="showSettingsTab('members')">Miembros</button>
+                <button class="settings-tab" onclick="showSettingsTab('channels')">Canales</button>
+            </div>
+            <div class="settings-content" id="settingsContent"></div>
         </div>
     </div>
     
@@ -173,6 +264,7 @@
         let currentServer = null;
         let currentChannel = null;
         let ws = null;
+        let chatWs = null;
         let terminalWs = null;
 
         if (token) loadUserData();
@@ -237,48 +329,68 @@
         async function loadServers() {
             const res = await fetch('/api/servers/', { headers: { 'Authorization': `Bearer ${token}` }});
             const servers = await res.json();
-            const list = document.getElementById('serverList');
+            const list = document.getElementById('serverListSidebar');
             list.innerHTML = servers.map(s => `
-                <div class="server-item" onclick="selectServer(${s.id})">
-                    <div class="server-icon">${s.name[0].toUpperCase()}</div>
-                    <span>${s.name}</span>
-                </div>
+                <div class="server-icon-small" onclick="selectServer(${s.id})" title="${s.name}">${s.name[0].toUpperCase()}</div>
             `).join('');
         }
 
         async function selectServer(serverId) {
+            document.querySelectorAll('.server-icon-small').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
             const res = await fetch(`/api/servers/${serverId}`, { headers: { 'Authorization': `Bearer ${token}` }});
             currentServer = await res.json();
             document.getElementById('currentServerName').textContent = currentServer.name;
             loadChannels(serverId);
         }
 
-        async function loadChannels(serverId) {
-            const res = await fetch(`/api/servers/${serverId}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
-            const members = await res.json();
-            const channels = [];
-            for (const m of members) {
-                for (const c of m.server.channels) {
-                    if (!channels.find(ch => ch.id === c.id)) channels.push(c);
-                }
+        async function showJoinServer() {
+            const code = prompt('Código de invitación:');
+            if (!code) return;
+            const parts = code.split('/');
+            const serverId = parts[parts.length - 2];
+            const inviteCode = parts[parts.length - 1];
+            
+            const res = await fetch(`/api/servers/${serverId}/join/${inviteCode}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                loadServers();
+                alert('Te uniste al servidor!');
+            } else {
+                alert('Código inválido');
             }
+        }
+
+        async function loadChannels(serverId) {
+            const serverRes = await fetch(`/api/servers/${serverId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const server = await serverRes.json();
+            console.log('Server response:', server);
+            
+            let channels = [];
+            if (server.channels) {
+                channels = server.channels;
+            }
+            
+            console.log('Channels:', channels);
             const list = document.getElementById('channelList');
             list.innerHTML = `
                 <div class="channel-category">Canales de Texto</div>
                 ${channels.filter(c => c.channel_type === 'text').map(c => `
-                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', '${c.channel_type}')">
+                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', 'text')">
                         <span class="icon">#</span> ${c.name}
                     </div>
                 `).join('')}
                 <div class="channel-category">Canales de Voz</div>
                 ${channels.filter(c => c.channel_type === 'voice').map(c => `
-                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', '${c.channel_type}')">
+                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', 'voice')">
                         <span class="icon">🔊</span> ${c.name}
                     </div>
                 `).join('')}
                 <div class="channel-category">Canales Personalizados</div>
                 ${channels.filter(c => c.channel_type === 'custom').map(c => `
-                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', '${c.channel_type}')">
+                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', 'custom')">
                         <span class="icon">⚙️</span> ${c.name}
                     </div>
                 `).join('')}
@@ -288,37 +400,240 @@
         async function selectChannel(channelId, name, type) {
             currentChannel = { id: channelId, name, type };
             document.getElementById('currentChannelName').textContent = name;
+            document.getElementById('messages').innerHTML = '';
             
             if (type === 'text') {
                 loadMessages(channelId);
                 document.getElementById('messageInputArea').style.display = 'flex';
+                document.getElementById('uploadProgress').style.display = 'none';
             } else if (type === 'voice') {
-                joinVoiceChannel(channelId);
+                showVoiceChannelUI(channelId);
                 document.getElementById('messageInputArea').style.display = 'none';
+                document.getElementById('uploadProgress').style.display = 'none';
             } else if (type === 'custom') {
                 document.getElementById('messageInputArea').style.display = 'none';
+                document.getElementById('uploadProgress').style.display = 'none';
                 loadCustomApps(channelId);
             }
         }
 
+        function showVoiceChannelUI(channelId) {
+            joinVoiceChannel(channelId);
+            updateVoiceChatGrid();
+        }
+
+        function updateVoiceChatGrid() {
+            const grid = document.getElementById('voiceChatGrid');
+            if (!grid) return;
+            
+            let localHtml = `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
+                <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    ${localStream ? 
+                        `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transform: scaleX(-1);"></video>` :
+                        `<span style="font-size: 48px; color: #8e9aaf;">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
+                    }
+                </div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
+                    <span style="color: #8e9aaf; font-size: 12px;">Tú</span>
+                    <span style="font-size: 12px;">${audioEnabled ? '🎤' : '🔇'}</span>
+                    <span style="font-size: 12px;">${videoEnabled ? '📷' : '📵'}</span>
+                </div>
+            </div>`;
+            
+            let othersHtml = voiceUsers.filter(u => u !== (currentUser && currentUser.username)).map(u => {
+                const pc = peerConnections[u];
+                let videoContent;
+                
+                if (pc) {
+                    const receivers = pc.getReceivers();
+                    const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
+                    
+                    if (videoReceiver && videoReceiver.track) {
+                        videoContent = `<video id="remoteVideo_${u}" autoplay style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video>`;
+                    } else {
+                        videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
+                    }
+                } else {
+                    videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
+                }
+                
+                return `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
+                    <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #8e9aaf;">
+                        ${videoContent}
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
+                        <span style="color: #8e9aaf; font-size: 12px;">${u}</span>
+                        <span style="font-size: 12px;">🎤</span>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            grid.innerHTML = localHtml + othersHtml;
+            
+            if (localStream) {
+                const localVid = document.getElementById('localVideo');
+                if (localVid) localVid.srcObject = localStream;
+            }
+            
+            for (const userId of Object.keys(peerConnections)) {
+                const pc = peerConnections[userId];
+                if (pc) {
+                    const receivers = pc.getReceivers();
+                    const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
+                    if (videoReceiver && videoReceiver.track) {
+                        const stream = new MediaStream([videoReceiver.track]);
+                        const remoteVid = document.getElementById('remoteVideo_' + userId);
+                        if (remoteVid) remoteVid.srcObject = stream;
+                    }
+                }
+            }
+        }
+
+        function updateVoiceChatGridWithStreams() {
+            console.log('Updating voice chat grid with streams');
+            updateVoiceChatGrid();
+        }
+
         async function loadMessages(channelId) {
+            connectChatWebSocket(channelId);
             const res = await fetch(`/api/channels/${channelId}/messages`, { headers: { 'Authorization': `Bearer ${token}` }});
             const messages = await res.json();
+            renderMessages(messages);
+        }
+
+        function connectChatWebSocket(channelId) {
+            if (chatWs) {
+                chatWs.close();
+            }
+            chatWs = new WebSocket(`ws://localhost:8000/ws/chat/${channelId}?token=${token}`);
+            chatWs.onopen = () => {
+                console.log('Chat WebSocket connected to channel', channelId);
+            };
+            chatWs.onmessage = (event) => {
+                console.log('Received:', event.data);
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_message') {
+                    console.log('New message received:', data.message);
+                    if (currentChannel && currentChannel.id === channelId) {
+                        addMessageToList(data.message);
+                    }
+                }
+            };
+            chatWs.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            chatWs.onclose = () => {
+                console.log('Chat WebSocket disconnected');
+            };
+        }
+
+        function renderMessages(messages) {
             const list = document.getElementById('messages');
-            list.innerHTML = messages.reverse().map(m => `
+            list.innerHTML = messages.reverse().map(m => createMessageHTML(m)).join('');
+            list.scrollTop = list.scrollHeight;
+        }
+
+        function createMessageHTML(m) {
+            const authorName = m.author.display_name || m.author.username;
+            const authorInitial = m.author.username[0].toUpperCase();
+            const time = m.created_at ? new Date(m.created_at).toLocaleString() : '';
+            
+            let attachments = '';
+            if (m.attachments && m.attachments.length) {
+                attachments = '<div class="message-attachments">';
+                for (const a of m.attachments) {
+                    if (a.file_type && a.file_type.startsWith('image/')) {
+                        attachments += `<img src="${a.file_path}" style="max-width: 300px; border-radius: 8px; margin: 4px;" onclick="window.open(this.src, '_blank')">`;
+                    } else {
+                        attachments += `<a class="attachment" href="${a.file_path}" target="_blank">${a.filename}</a>`;
+                    }
+                }
+                attachments += '</div>';
+            }
+            
+            return `
                 <div class="message">
-                    <div class="message-avatar">${m.author.username[0].toUpperCase()}</div>
+                    <div class="message-avatar">${authorInitial}</div>
                     <div class="message-content">
                         <div class="message-header">
-                            <span class="message-author">${m.author.display_name || m.author.username}</span>
-                            <span class="message-time">${new Date(m.created_at).toLocaleString()}</span>
+                            <span class="message-author">${authorName}</span>
+                            <span class="message-time">${time}</span>
                         </div>
                         <div class="message-text">${m.content || ''}</div>
-                        ${m.attachments && m.attachments.length ? `<div class="message-attachments">${m.attachments.map(a => `<a class="attachment" href="${a.file_path}" target="_blank">${a.filename}</a>`).join('')}</div>` : ''}
+                        ${attachments}
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
+
+        function addMessageToList(m) {
+            const list = document.getElementById('messages');
+            list.innerHTML += createMessageHTML(m);
             list.scrollTop = list.scrollHeight;
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file || !currentChannel) return;
+            
+            const MAX_SIZE = 100 * 1024 * 1024;
+            if (file.size > MAX_SIZE) {
+                alert(`El archivo es demasiado grande. Máximo permitido: 100MB`);
+                event.target.value = '';
+                return;
+            }
+            
+            const uploadProgress = document.getElementById('uploadProgress');
+            const uploadFileName = document.getElementById('uploadFileName');
+            const uploadPercent = document.getElementById('uploadPercent');
+            const progressBar = document.getElementById('progressBar');
+            
+            uploadFileName.textContent = file.name;
+            uploadProgress.style.display = 'block';
+            progressBar.style.width = '0%';
+            uploadPercent.textContent = '0%';
+            
+            const messageRes = await fetch(`/api/channels/${currentChannel.id}/messages`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({ content: ' ', message_type: 'file' })
+            });
+            
+            if (messageRes.ok) {
+                const message = await messageRes.json();
+                
+                const fileFormData = new FormData();
+                fileFormData.append('file', file);
+                
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percent + '%';
+                        uploadPercent.textContent = percent + '%';
+                    }
+                });
+                
+                xhr.addEventListener('load', () => {
+                    uploadProgress.style.display = 'none';
+                    loadMessages(currentChannel.id);
+                });
+                
+                xhr.addEventListener('error', () => {
+                    uploadProgress.style.display = 'none';
+                    alert('Error al subir archivo');
+                });
+                
+                xhr.open('POST', `/api/channels/${currentChannel.id}/messages/${message.id}/attachments`);
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.send(fileFormData);
+            }
+            
+            event.target.value = '';
         }
 
         async function sendMessage() {
@@ -339,9 +654,223 @@
             if (e.key === 'Enter') sendMessage();
         }
 
+        async function showCreateChannel() {
+            if (!currentServer) {
+                alert('Selecciona un servidor primero');
+                return;
+            }
+            const name = prompt('Nombre del canal:');
+            if (!name) return;
+            
+            const type = prompt('Tipo de canal (text/voice/custom):', 'text');
+            if (!type) return;
+            
+            const res = await fetch('/api/channels/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, channel_type: type, server_id: currentServer.id })
+            });
+            if (res.ok) {
+                loadChannels(currentServer.id);
+            } else {
+                alert('Error al crear canal');
+            }
+        }
+
+        function toggleServerOptions() {
+            document.getElementById('serverOptionsMenu').classList.toggle('show');
+        }
+
+        function showServerSettings() {
+            if (!currentServer) {
+                alert('Selecciona un servidor primero');
+                return;
+            }
+            document.getElementById('serverOptionsMenu').classList.remove('show');
+            document.getElementById('settingsModal').classList.add('show');
+            showSettingsTab('general');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        async function showSettingsTab(tab) {
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            const content = document.getElementById('settingsContent');
+            
+            if (tab === 'general') {
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Información del Servidor</h3>
+                        <label class="settings-label">Nombre</label>
+                        <input type="text" class="settings-input" id="settingsServerName" value="${currentServer.name || ''}">
+                        <label class="settings-label">Descripción</label>
+                        <textarea class="settings-input" id="settingsServerDesc" rows="3">${currentServer.description || ''}</textarea>
+                        <label class="settings-label">URL de Imagen</label>
+                        <input type="text" class="settings-input" id="settingsServerImage" value="${currentServer.image_url || ''}" placeholder="https://...">
+                        <button onclick="saveServerSettings()" style="padding: 10px 20px; background: #e94560; border: none; border-radius: 6px; color: white; cursor: pointer;">Guardar Cambios</button>
+                    </div>
+                `;
+            } else if (tab === 'roles') {
+                const res = await fetch(`/api/servers/${currentServer.id}/roles`, { headers: { 'Authorization': `Bearer ${token}` }});
+                const roles = await res.json();
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Roles</h3>
+                        <div id="rolesList">${roles.map(r => `
+                            <div class="role-item">
+                                <div style="display: flex; align-items: center;">
+                                    <div class="role-color" style="background: ${r.color}"></div>
+                                    <span>${r.name}</span>
+                                </div>
+                                <button onclick="deleteRole(${r.id})" style="background: #e94560; border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+                            </div>
+                        `).join('')}</div>
+                        <div style="margin-top: 16px;">
+                            <input type="text" class="settings-input" id="newRoleName" placeholder="Nombre del rol">
+                            <input type="color" id="newRoleColor" value="#e94560" style="margin-right: 8px;">
+                            <button onclick="createRole()" style="padding: 10px 20px; background: #238636; border: none; border-radius: 6px; color: white; cursor: pointer;">Crear Rol</button>
+                        </div>
+                    </div>
+                `;
+            } else if (tab === 'members') {
+                const res = await fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
+                const members = await res.json();
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Miembros (${members.length})</h3>
+                        ${members.map(m => `
+                            <div class="member-item">
+                                <div class="member-avatar">${m.user.username[0].toUpperCase()}</div>
+                                <div style="flex: 1;">
+                                    <div>${m.user.display_name || m.user.username}</div>
+                                    <div style="color: #8e9aaf; font-size: 12px;">@${m.user.username}</div>
+                                </div>
+                                ${m.user.id === currentServer.owner_id ? '<span style="color: #e94560;">Dueño</span>' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (tab === 'channels') {
+                const res = await fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
+                const members = await res.json();
+                const channels = [];
+                for (const m of members) {
+                    for (const c of m.server.channels) {
+                        if (!channels.find(ch => ch.id === c.id)) channels.push(c);
+                    }
+                }
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Canales</h3>
+                        ${channels.map(c => `
+                            <div class="role-item">
+                                <div style="display: flex; align-items: center;">
+                                    <span style="margin-right: 8px;">${c.channel_type === 'text' ? '#' : c.channel_type === 'voice' ? '🔊' : '⚙️'}</span>
+                                    <span>${c.name}</span>
+                                    <span style="color: #8e9aaf; margin-left: 8px;">(${c.channel_type})</span>
+                                </div>
+                                <button onclick="deleteChannel(${c.id})" style="background: #e94560; border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        async function saveServerSettings() {
+            const name = document.getElementById('settingsServerName').value;
+            const description = document.getElementById('settingsServerDesc').value;
+            const image_url = document.getElementById('settingsServerImage').value;
+            
+            const res = await fetch(`/api/servers/${currentServer.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, description, image_url })
+            });
+            if (res.ok) {
+                currentServer = await res.json();
+                document.getElementById('currentServerName').textContent = currentServer.name;
+                loadServers();
+                alert('Guardado correctamente');
+            }
+        }
+
+        async function createRole() {
+            const name = document.getElementById('newRoleName').value;
+            const color = document.getElementById('newRoleColor').value;
+            if (!name) return;
+            
+            const res = await fetch(`/api/servers/${currentServer.id}/roles`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, color, permissions: '{}' })
+            });
+            if (res.ok) {
+                showSettingsTab('roles');
+            }
+        }
+
+        async function deleteRole(roleId) {
+            if (!confirm('¿Eliminar este rol?')) return;
+            const res = await fetch(`/api/servers/${currentServer.id}/roles/${roleId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                showSettingsTab('roles');
+            }
+        }
+
+        async function deleteChannel(channelId) {
+            if (!confirm('¿Eliminar este canal?')) return;
+            const res = await fetch(`/api/channels/${channelId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                showSettingsTab('channels');
+                loadChannels(currentServer.id);
+            }
+        }
+
+        function showInviteLink() {
+            if (!currentServer) {
+                alert('Selecciona un servidor primero');
+                return;
+            }
+            const inviteUrl = `${window.location.origin}/invite/${currentServer.id}/${currentServer.invite_code}`;
+            navigator.clipboard.writeText(inviteUrl);
+            alert('Enlace de invitación copiado al portapapeles');
+            document.getElementById('serverOptionsMenu').classList.remove('show');
+        }
+
+        async function leaveCurrentServer() {
+            if (!currentServer) {
+                alert('Selecciona un servidor primero');
+                return;
+            }
+            if (confirm('¿Seguro que quieres salir del servidor?')) {
+                const res = await fetch(`/api/servers/${currentServer.id}/leave`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    currentServer = null;
+                    currentChannel = null;
+                    document.getElementById('currentServerName').textContent = 'Selecciona un servidor';
+                    document.getElementById('currentChannelName').textContent = 'Bienvenido';
+                    document.getElementById('channelList').innerHTML = '';
+                    loadServers();
+                }
+            }
+            document.getElementById('serverOptionsMenu').classList.remove('show');
+        }
+
         function showHome() {
             document.getElementById('serverSidebar').style.display = 'block';
-            document.querySelector('.channel-sidebar').style.display = 'block';
             document.querySelector('.chat-area').style.display = 'flex';
         }
 
@@ -369,50 +898,710 @@
             }
         }
 
+        let localStream = null;
+        let screenStream = null;
+        let localVideoTrack = null;
+        let audioEnabled = true;
+        let videoEnabled = true;
+        let screenSharing = false;
+        let voiceUsers = [];
+        let peerConnections = {};
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
         function joinVoiceChannel(channelId) {
+            console.log('Joining voice channel:', channelId);
             ws = new WebSocket(`ws://localhost:8000/ws/voice/${channelId}?token=${token}`);
-            ws.onmessage = (event) => {
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('voiceChannelName').textContent = currentChannel.name;
+                document.getElementById('voiceOverlay').classList.remove('hidden');
+                updateVoiceGrid();
+                
+                initLocalMedia().catch(e => console.log('No media:', e));
+            };
+            
+            ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
-                if (data.type === 'joined' || data.type === 'user_joined' || data.type === 'user_left') {
-                    document.getElementById('voiceOverlay').classList.remove('hidden');
-                    document.getElementById('voiceUsers').innerHTML = (data.users || []).map(u => 
-                        `<div class="voice-user">${u}</div>`
-                    ).join('');
+                console.log('Received:', data.type, 'from', data.from_username || data.from_user_id);
+                
+                if (data.type === 'joined' || data.type === 'user_joined') {
+                    const wasEmpty = voiceUsers.length === 0;
+                    voiceUsers = data.users || [];
+                    console.log('Users in room:', voiceUsers);
+                    updateVoiceChatGrid();
+                    updateVoiceGrid();
+                    
+                    const otherUsers = voiceUsers.filter(u => u !== currentUser.username);
+                    if (otherUsers.length > 0) {
+                        console.log('Other users in room:', otherUsers);
+                        for (const username of otherUsers) {
+                            if (!peerConnections[username]) {
+                                setTimeout(async () => {
+                                    console.log('Creating peer connection to:', username);
+                                    await createPeerConnection(username, true);
+                                }, Math.random() * 2000 + 1000);
+                            }
+                        }
+                    }
+                } else if (data.type === 'user_left') {
+                    voiceUsers = data.users || [];
+                    updateVoiceChatGrid();
+                    updateVoiceGrid();
+                    closeAllPeerConnections();
+                } else if (data.type === 'offer') {
+                    console.log('Handling offer from:', data.from_username || data.from_user_id);
+                    await handleOffer(data);
+                } else if (data.type === 'answer') {
+                    console.log('Handling answer from:', data.from_username || data.from_user_id);
+                    await handleAnswer(data);
+                } else if (data.type === 'ice_candidate') {
+                    console.log('Handling ICE from:', data.from_username || data.from_user_id);
+                    await handleIceCandidate(data);
+                } else if (data.type === 'user_screenshare') {
+                    console.log('User screenshare:', data.from_username || data.user_id, 'enabled:', data.enabled);
+                    const username = data.from_username || String(data.user_id);
+                    const remoteVideo = document.getElementById('remoteVideo_' + username);
+                    if (remoteVideo) {
+                        if (data.enabled) {
+                            remoteVideo.style.border = '2px solid #e94560';
+                        } else {
+                            remoteVideo.style.border = 'none';
+                        }
+                    }
+                    updateVoiceChatGrid();
                 }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket closed');
             };
         }
 
-        function leaveVoice() {
-            if (ws) { ws.close(); ws = null; }
-            document.getElementById('voiceOverlay').classList.add('hidden');
+        async function createPeerConnection(remoteUserId, createOffer) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.log('WebSocket not ready, waiting...');
+                setTimeout(() => createPeerConnection(remoteUserId, createOffer), 500);
+                return;
+            }
+            
+            console.log('Creating peer connection to:', remoteUserId, 'createOffer:', createOffer);
+            
+            if (peerConnections[remoteUserId]) {
+                console.log('Peer connection already exists for', remoteUserId);
+                return;
+            }
+            
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[remoteUserId] = pc;
+            
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('Sending ICE candidate to', remoteUserId);
+                    ws.send(JSON.stringify({
+                        type: 'ice_candidate',
+                        candidate: event.candidate,
+                        target_user_id: remoteUserId
+                    }));
+                }
+            };
+            
+            pc.ontrack = (event) => {
+                console.log('Received track from', remoteUserId, 'tracks:', event.streams[0].getTracks());
+                const remoteVideo = document.getElementById('remoteVideo_' + remoteUserId);
+                if (remoteVideo) {
+                    remoteVideo.srcObject = event.streams[0];
+                } else {
+                    console.log('Remote video element not found, will retry');
+                    setTimeout(() => updateVoiceChatGridWithStreams(), 500);
+                }
+            };
+            
+            if (localStream) {
+                console.log('Adding local tracks to peer connection');
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            } else {
+                console.log('No local stream available');
+                try {
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    localStream = tempStream;
+                    tempStream.getTracks().forEach(track => pc.addTrack(track, tempStream));
+                } catch (e) {
+                    console.error('Could not get media:', e);
+                }
+            }
+            
+            if (createOffer) {
+                console.log('Creating offer for', remoteUserId);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({
+                    type: 'offer',
+                    sdp: offer,
+                    target_user_id: remoteUserId
+                }));
+            }
+            
+            return pc;
+        }
+
+        async function handleOffer(data) {
+            console.log('handleOffer from', data.from_user_id);
+            
+            const remoteUserId = data.from_username || String(data.from_user_id);
+            
+let pc = peerConnections[remoteUserId];
+            if (!pc) {
+                pc = new RTCPeerConnection(rtcConfig);
+                peerConnections[remoteUserId] = pc;
+            }
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    ws.send(JSON.stringify({
+                        type: 'ice_candidate',
+                        candidate: event.candidate,
+                        target_user_id: remoteUserId
+                    }));
+                }
+            };
+
+            pc.ontrack = (event) => {
+                console.log('Received track from', remoteUserId, 'kind:', event.track.kind, 'id:', event.track.id);
+                console.log('Stream tracks:', event.streams[0].getTracks().map(t => t.kind));
+                updateVoiceChatGridWithStreams();
+            };
+
+if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    if (!pc.getSenders().find(s => s.track === track)) {
+                        pc.addTrack(track, localStream);
+                    }
+                });
+            }
+
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            ws.send(JSON.stringify({
+                type: 'answer',
+                sdp: answer,
+                target_user_id: remoteUserId
+            }));
+        }
+
+        async function handleAnswer(data) {
+            console.log('handleAnswer from', data.from_user_id);
+            
+            const remoteUserId = data.from_username || String(data.from_user_id);
+            const pc = peerConnections[remoteUserId];
+            if (pc) {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            }
+        }
+
+        async function handleIceCandidate(data) {
+            console.log('handleIceCandidate from', data.from_user_id);
+            
+            const remoteUserId = data.from_username || String(data.from_user_id);
+            const pc = peerConnections[remoteUserId];
+            if (pc && data.candidate) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {
+                    console.error('Error adding ICE candidate:', e);
+                }
+            }
+        }
+
+        function closeAllPeerConnections() {
+            Object.values(peerConnections).forEach(pc => pc.close());
+            peerConnections = {};
+        }
+
+        function enableMedia() {
+            initLocalMedia().then(() => loadVoiceDevices());
         }
 
         function toggleMute() {
-            document.getElementById('muteBtn').classList.toggle('active');
-            if (ws) ws.send(JSON.stringify({ type: 'mute', muted: document.getElementById('muteBtn').classList.contains('active') }));
+            audioEnabled = !audioEnabled;
+            if (localStream) {
+                localStream.getAudioTracks().forEach(t => t.enabled = audioEnabled);
+            }
+            document.getElementById('muteBtn').classList.toggle('active', !audioEnabled);
+            document.getElementById('muteBtn').textContent = audioEnabled ? '🎤' : '🔇';
+            updateVoiceChatGrid();
         }
 
         function toggleCamera() {
-            document.getElementById('cameraBtn').classList.toggle('active');
-            if (ws) ws.send(JSON.stringify({ type: 'camera', enabled: document.getElementById('cameraBtn').classList.contains('active') }));
+            videoEnabled = !videoEnabled;
+            if (localStream) {
+                localStream.getVideoTracks().forEach(t => t.enabled = videoEnabled);
+            }
+            document.getElementById('cameraBtn').classList.toggle('active', !videoEnabled);
+            document.getElementById('cameraBtn').textContent = videoEnabled ? '📷' : '📵';
+            updateVoiceChatGrid();
         }
 
-        function toggleScreenShare() {
-            document.getElementById('screenBtn').classList.toggle('active');
-            if (ws) ws.send(JSON.stringify({ type: 'screenshare', enabled: document.getElementById('screenBtn').classList.contains('active') }));
+        async function toggleScreenShare() {
+            console.log('toggleScreenShare called, current state:', screenSharing);
+            
+            if (screenSharing) {
+                console.log('Stopping screen share');
+                if (screenStream) {
+                    screenStream.getTracks().forEach(t => t.stop());
+                    screenStream = null;
+                }
+                screenSharing = false;
+                document.getElementById('screenBtn').classList.remove('active');
+                document.getElementById('screenBtn').style.background = '#16213e';
+
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'screenshare', enabled: false }));
+                }
+
+                try {
+                    const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    const camTrack = camStream.getVideoTracks()[0];
+                    
+                    if (localStream) {
+                        localStream.getVideoTracks().forEach(t => localStream.removeTrack(t));
+                        localStream.addTrack(camTrack);
+                        localVideoTrack = camTrack;
+                    } else {
+                        localStream = camStream;
+                        localVideoTrack = camTrack;
+                    }
+                    
+                    for (const peerId of Object.keys(peerConnections)) {
+                        const pc = peerConnections[peerId];
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            await sender.replaceTrack(camTrack);
+                            const offer = await pc.createOffer();
+                            await pc.setLocalDescription(offer);
+                            ws.send(JSON.stringify({
+                                type: 'offer',
+                                sdp: offer,
+                                target_user_id: peerId
+                            }));
+                        }
+                    }
+                } catch (e) {
+                    console.log('No camera available, using audio only');
+                    localVideoTrack = null;
+                }
+                
+                updateVoiceChatGrid();
+            } else {
+                console.log('Starting screen share');
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: { cursor: 'always' },
+                        audio: false
+                    });
+                    console.log('Got screen stream:', screenStream.id);
+                    
+                    const screenTrack = screenStream.getVideoTracks()[0];
+                    localVideoTrack = screenTrack;
+                    
+                    if (localStream) {
+                        localStream.getVideoTracks().forEach(t => localStream.removeTrack(t));
+                        localStream.addTrack(screenTrack);
+                    } else {
+                        localStream = new MediaStream([screenTrack]);
+                    }
+                    
+                    for (const peerId of Object.keys(peerConnections)) {
+                        const pc = peerConnections[peerId];
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            await sender.replaceTrack(screenTrack);
+                            const offer = await pc.createOffer();
+                            await pc.setLocalDescription(offer);
+                            ws.send(JSON.stringify({
+                                type: 'offer',
+                                sdp: offer,
+                                target_user_id: peerId
+                            }));
+                        }
+                    }
+                    
+                    screenTrack.onended = () => {
+                        console.log('Screen share ended by user');
+                        toggleScreenShare();
+                    };
+                    
+                    screenSharing = true;
+                    document.getElementById('screenBtn').classList.add('active');
+                    document.getElementById('screenBtn').style.background = '#e94560';
+
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'screenshare', enabled: true }));
+                    }
+
+                    updateVoiceChatGrid();
+                } catch (err) {
+                    console.error('Error getting display media:', err);
+                    alert('Error al compartir pantalla: ' + err.message);
+                }
+            }
         }
 
-        async function loadCustomApps(channelId) {
+        function showVoiceSettings() {
+            const panel = document.getElementById('voiceSettingsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function leaveVoiceChannel() {
+            console.log('Leaving voice channel');
+            
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            if (screenStream) {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+            }
+            if (ws) { ws.close(); ws = null; }
+            
+            voiceUsers = [];
+            closeAllPeerConnections();
+            
+            document.getElementById('voiceOverlay').classList.add('hidden');
+            document.getElementById('voiceSettingsPanel').style.display = 'none';
+            
+            if (currentChannel && currentChannel.type === 'voice') {
+                showVoiceChannelUI(currentChannel.id);
+            }
+        }
+
+        function leaveVoice() {
+            leaveVoiceChannel();
+        }
+
+        async function initLocalMedia() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const hasAudio = devices.some(d => d.kind === 'audioinput');
+                const hasVideo = devices.some(d => d.kind === 'videoinput');
+                
+                console.log('Devices found:', devices.map(d => d.kind));
+                
+                if (!hasAudio && !hasVideo) {
+                    console.warn('No se encontraron dispositivos de medios');
+                    updateVoiceGrid();
+                    return;
+                }
+                
+                let constraints = { 
+                    audio: hasAudio ? true : false,
+                    video: hasVideo ? {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } : false
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                if (localStream.getVideoTracks().length > 0) {
+                    localVideoTrack = localStream.getVideoTracks()[0];
+                }
+                
+                console.log('Media initialized successfully');
+                updateVoiceGrid();
+            } catch (err) {
+                console.error('Error accessing media:', err);
+                localStream = null;
+                updateVoiceGrid();
+            }
+        }
+
+        function updateVoiceGrid() {
+            const grid = document.getElementById('voiceGrid');
+            if (!grid) return;
+            
+            let localHtml = `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
+                <div style="width: 100%; height: 120px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                    ${localStream ? 
+                        `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video>` :
+                        `<span style="font-size: 48px; color: #8e9aaf;">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
+                    }
+                </div>
+                <div style="text-align: center; margin-top: 4px; color: #8e9aaf; font-size: 12px;">Tú</div>
+            </div>`;
+            
+            let othersHtml = voiceUsers.filter(u => u !== (currentUser && currentUser.username)).map(u => `
+                <div style="background: #0f3460; border-radius: 8px; padding: 8px;">
+                    <div style="width: 100%; height: 120px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #8e9aaf;">
+                        <span style="font-size: 48px;">${u[0].toUpperCase()}</span>
+                    </div>
+                    <div style="text-align: center; margin-top: 4px; color: #8e9aaf; font-size: 12px;">${u}</div>
+                </div>
+            `).join('');
+            
+            grid.innerHTML = localHtml + othersHtml;
+            
+            if (localStream) {
+                const localVid = document.getElementById('localVideo');
+                if (localVid) localVid.srcObject = localStream;
+            }
+        }
+
+        async function loadVoiceDevices() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                const videoInputs = devices.filter(d => d.kind === 'videoinput');
+                
+                const audioSelect = document.getElementById('audioInputSelect');
+                const videoSelect = document.getElementById('videoInputSelect');
+                
+                audioSelect.innerHTML = audioInputs.map(d => 
+                    `<option value="${d.deviceId}">${d.label || 'Micrófono ' + d.deviceId.slice(0,8)}</option>`
+                ).join('');
+                
+                videoSelect.innerHTML = videoInputs.map(d => 
+                    `<option value="${d.deviceId}">${d.label || 'Cámara ' + d.deviceId.slice(0,8)}</option>`
+                ).join('');
+            } catch (err) {
+                console.error('Error enumerating devices:', err);
+            }
+        }
+
+        async function changeAudioInput(deviceId) {
+            if (!localStream) return;
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { deviceId: { exact: deviceId } },
+                    video: false
+                });
+                localStream.getAudioTracks().forEach(t => localStream.removeTrack(t));
+                newStream.getAudioTracks().forEach(t => localStream.addTrack(t));
+            } catch (err) {
+                console.error('Error changing audio input:', err);
+            }
+        }
+
+        async function changeVideoInput(deviceId) {
+            if (!localStream || !localVideoTrack) return;
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: { deviceId: { exact: deviceId } }
+                });
+                const newVideoTrack = newStream.getVideoTracks()[0];
+                localStream.removeTrack(localVideoTrack);
+                localStream.addTrack(newVideoTrack);
+                localVideoTrack = newVideoTrack;
+                
+                const localVid = document.getElementById('localVideo');
+                if (localVid) localVid.srcObject = localStream;
+            } catch (err) {
+                console.error('Error changing video input:', err);
+            }
+        }
+
+        function changeVideoQuality(quality) {
+            if (!localVideoTrack) return;
+            
+            const constraints = {
+                low: { width: 320, height: 240 },
+                medium: { width: 640, height: 480 },
+                high: { width: 1280, height: 720 },
+                hd: { width: 1920, height: 1080 }
+            };
+            
+            localVideoTrack.applyConstraints({
+                width: constraints[quality].width,
+                height: constraints[quality].height
+            });
+        }
+
+async function loadCustomApps(channelId) {
             const res = await fetch(`/api/custom-apps/channel/${channelId}`, { headers: { 'Authorization': `Bearer ${token}` }});
             const apps = await res.json();
             const list = document.getElementById('messages');
-            list.innerHTML = apps.length ? apps.map(a => `
-                <div style="padding: 12px; background: #0f3460; margin-bottom: 8px; border-radius: 8px;">
-                    <strong>${a.name}</strong>
-                    <p>${a.description || ''}</p>
-                    <button onclick="openTerminal(${a.id})" style="margin-top: 8px; padding: 8px 16px; background: #e94560; border: none; border-radius: 4px; color: white; cursor: pointer;">Abrir Terminal</button>
+            list.innerHTML = `
+                <div style="padding: 16px;">
+                    <h3 style="color: #eee; margin-bottom: 16px;">Aplicaciones Personalizadas</h3>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <button onclick="showCreateAppForm(${channelId})" style="padding: 10px 20px; background: #238636; border: none; border-radius: 4px; color: white; cursor: pointer;">+ Nueva Aplicación</button>
+                        ${!apps.length ? `<button onclick="createSampleApp(${channelId})" style="padding: 10px 20px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #8e9aaf; cursor: pointer;">📝 Crear app de ejemplo</button>` : ''}
+                    </div>
+                    <div id="appsList">
+                        ${apps.length ? apps.map(a => `
+                            <div style="padding: 12px; background: #0f3460; margin-bottom: 8px; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <strong style="color: #eee;">${a.name}</strong>
+                                    <div>
+                                        <button onclick="editApp(${a.id})" style="padding: 6px 12px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #8e9aaf; cursor: pointer; margin-right: 4px;">✏️</button>
+                                        <button onclick="openTerminal(${a.id})" style="padding: 6px 12px; background: #e94560; border: none; border-radius: 4px; color: white; cursor: pointer;">▶️ Terminal</button>
+                                    </div>
+                                </div>
+                                <p style="color: #8e9aaf; margin: 8px 0; font-size: 14px;">${a.description || 'Sin descripción'}</p>
+                                <code style="color: #58a6ff; font-size: 12px;">${a.command}</code>
+                            </div>
+                        `).join('') : '<p style="color: #8e9aaf;">No hay aplicaciones en este canal</p>'}
+                    </div>
                 </div>
-            `).join('') : '<p style="color: #8e9aaf;">No hay aplicaciones personalizadas en este canal</p>';
+            `;
+        }
+
+        async function createSampleApp(channelId) {
+            const sampleApp = {
+                name: "Calculadora Python",
+                description: "Una calculadora interactiva simple en Python",
+                command: "python -c \"while True: print(eval(input('>>> ')))\"",
+                working_directory: null,
+                channel_id: channelId
+            };
+            
+            const res = await fetch('/api/custom-apps/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(sampleApp)
+            });
+            
+            if (res.ok) {
+                loadCustomApps(channelId);
+            } else {
+                alert('Error al crear app de ejemplo');
+            }
+        }
+
+        function showCreateAppForm(channelId) {
+            const list = document.getElementById('messages');
+            list.innerHTML = `
+                <div style="padding: 16px; max-width: 500px;">
+                    <h3 style="color: #eee; margin-bottom: 16px;">Nueva Aplicación</h3>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Nombre</label>
+                        <input type="text" id="appName" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee;">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Descripción</label>
+                        <textarea id="appDesc" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee; rows: 3;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Comando</label>
+                        <input type="text" id="appCommand" placeholder="python script.py" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Directorio de trabajo (opcional)</label>
+                        <input type="text" id="appWorkingDir" placeholder="C:\Users\..." style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee;">
+                    </div>
+                    <button onclick="createApp(${channelId})" style="padding: 10px 20px; background: #238636; border: none; border-radius: 4px; color: white; cursor: pointer;">Crear</button>
+                    <button onclick="loadCustomApps(${channelId})" style="padding: 10px 20px; background: #0f3460; border: none; border-radius: 4px; color: #8e9aaf; cursor: pointer; margin-left: 8px;">Cancelar</button>
+                </div>
+            `;
+        }
+
+        async function createApp(channelId) {
+            const name = document.getElementById('appName').value;
+            const description = document.getElementById('appDesc').value;
+            const command = document.getElementById('appCommand').value;
+            const working_directory = document.getElementById('appWorkingDir').value || null;
+            
+            if (!name || !command) {
+                alert('Nombre y comando son obligatorios');
+                return;
+            }
+            
+            const res = await fetch('/api/custom-apps/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, description, command, working_directory, channel_id: channelId })
+            });
+            
+            if (res.ok) {
+                loadCustomApps(channelId);
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (err.detail || 'Error al crear aplicación'));
+            }
+        }
+
+        async function editApp(appId) {
+            const res = await fetch(`/api/custom-apps/${appId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const app = await res.json();
+            
+            const list = document.getElementById('messages');
+            list.innerHTML = `
+                <div style="padding: 16px; max-width: 500px;">
+                    <h3 style="color: #eee; margin-bottom: 16px;">Editar Aplicación</h3>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Nombre</label>
+                        <input type="text" id="appName" value="${app.name}" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee;">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Descripción</label>
+                        <textarea id="appDesc" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee; rows: 3;">${app.description || ''}</textarea>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Comando</label>
+                        <input type="text" id="appCommand" value="${app.command}" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; color: #8e9aaf; margin-bottom: 4px;">Directorio de trabajo</label>
+                        <input type="text" id="appWorkingDir" value="${app.working_directory || ''}" style="width: 100%; padding: 10px; background: #0f3460; border: 1px solid #16213e; border-radius: 4px; color: #eee;">
+                    </div>
+                    <button onclick="saveApp(${app.id})" style="padding: 10px 20px; background: #238636; border: none; border-radius: 4px; color: white; cursor: pointer;">Guardar</button>
+                    <button onclick="deleteApp(${app.id})" style="padding: 10px 20px; background: #e94560; border: none; border-radius: 4px; color: white; cursor: pointer; margin-left: 8px;">Eliminar</button>
+                    <button onclick="loadCustomApps(${app.channel_id})" style="padding: 10px 20px; background: #0f3460; border: none; border-radius: 4px; color: #8e9aaf; cursor: pointer; margin-left: 8px;">Cancelar</button>
+                </div>
+            `;
+        }
+
+        async function saveApp(appId) {
+            const name = document.getElementById('appName').value;
+            const description = document.getElementById('appDesc').value;
+            const command = document.getElementById('appCommand').value;
+            const working_directory = document.getElementById('appWorkingDir').value || null;
+            
+            if (!name || !command) {
+                alert('Nombre y comando son obligatorios');
+                return;
+            }
+            
+            const res = await fetch(`/api/custom-apps/${appId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, description, command, working_directory })
+            });
+            
+            if (res.ok) {
+                const app = await res.json();
+                loadCustomApps(app.channel_id);
+            } else {
+                alert('Error al guardar');
+            }
+        }
+
+        async function deleteApp(appId) {
+            if (!confirm('¿Eliminar esta aplicación?')) return;
+            
+            const res = await fetch(`/api/custom-apps/${appId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                location.reload();
+            } else {
+                alert('Error al eliminar');
+            }
         }
 
         async function openTerminal(appId) {
@@ -420,27 +1609,64 @@
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = await res.json();
+            
+            if (!res.ok) {
+                alert('Error al iniciar terminal');
+                return;
+            }
+            
+            document.getElementById('terminalOutput').innerHTML = '';
+            document.getElementById('terminalModal').classList.add('active');
             
             terminalWs = new WebSocket(`ws://localhost:8000/ws/terminal/${appId}?token=${token}`);
+            
+            terminalWs.onopen = () => {
+                console.log('Terminal WebSocket connected');
+            };
+            
             terminalWs.onmessage = (event) => {
                 const d = JSON.parse(event.data);
                 if (d.type === 'output') {
-                    document.getElementById('terminalOutput').innerHTML += `<div>${d.data}</div>`;
+                    const output = document.getElementById('terminalOutput');
+                    output.innerHTML += `<div style="font-family: monospace; white-space: pre-wrap;">${d.data}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                } else if (d.type === 'error') {
+                    const output = document.getElementById('terminalOutput');
+                    output.innerHTML += `<div style="color: #e94560; font-family: monospace;">Error: ${d.message}</div>`;
+                    output.scrollTop = output.scrollHeight;
                 }
             };
             
-            document.getElementById('terminalModal').classList.add('active');
+            terminalWs.onerror = (error) => {
+                console.error('Terminal WebSocket error:', error);
+            };
+            
+            terminalWs.onclose = (event) => {
+                console.log('Terminal WebSocket closed:', event.code, event.reason);
+                const output = document.getElementById('terminalOutput');
+                output.innerHTML += `<div style="color: #8e9aaf;">--- Terminal cerrado (código: ${event.code}) ---</div>`;
+            };
         }
 
         function closeTerminal() {
-            if (terminalWs) { terminalWs.close(); terminalWs = null; }
+            if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+                terminalWs.close();
+            }
+            terminalWs = null;
             document.getElementById('terminalModal').classList.remove('active');
         }
 
         function sendTerminalCommand() {
             const input = document.getElementById('terminalInput');
-            if (terminalWs && input.value) {
+            if (!terminalWs) {
+                alert('Terminal no conectado');
+                return;
+            }
+            if (terminalWs.readyState !== WebSocket.OPEN) {
+                alert('Terminal desconectado, prueba de nuevo');
+                return;
+            }
+            if (input.value) {
                 terminalWs.send(input.value);
                 input.value = '';
             }
