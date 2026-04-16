@@ -1,0 +1,91 @@
+# Archivos temporales y de caché
+*.tmp
+*.temp
+.cache/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Datos de la aplicación
+data/
+logs/
+*.db
+
+# Archivos subidos
+uploads/
+avatars/
+banners/
+
+# Archivos de build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Archivos de test
+tests/test.db
+tests/integration_test.db
+tests/perf_test.db
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de configuración local (opcional)
+config.local.ini
+.secrets/
+
+# Archivos de empaquetado
+*.spec
+manifest/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Datos de la aplicación
+data/
+logs/
+*.db
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración local (si los hubiera)
+config.local.py
+settings.local.py
+
+# Archivos de medios subidos (en desarrollo)
+uploads/
+avatars/
+banners/
+
+# Archivos de test
+tests/test.db
+tests/integration_test.db

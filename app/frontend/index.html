@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Server</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; }
+        
+        #app { display: flex; height: 100vh; }
+        
+        .sidebar { width: 72px; background: #16213e; display: flex; flex-direction: column; align-items: center; padding: 12px 0; }
+        .sidebar-btn { width: 48px; height: 48px; border-radius: 50%; background: #0f3460; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.2s; }
+        .sidebar-btn:hover { background: #e94560; }
+        .sidebar-btn.active { background: #e94560; }
+        
+        .server-sidebar { width: 240px; background: #16213e; padding: 16px; overflow-y: auto; }
+        .server-item { display: flex; align-items: center; padding: 10px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; }
+        .server-item:hover { background: #0f3460; }
+        .server-item.active { background: #e94560; }
+        .server-icon { width: 40px; height: 40px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-weight: bold; }
+        
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+        
+        .channel-sidebar { width: 220px; background: #1a1a2e; padding: 16px; border-right: 1px solid #0f3460; }
+        .channel-category { color: #8e9aaf; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; margin-top: 16px; font-weight: bold; }
+        .channel-item { display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: #8e9aaf; }
+        .channel-item:hover { background: #16213e; color: #eee; }
+        .channel-item.active { background: #16213e; color: #eee; }
+        .channel-item .icon { margin-right: 8px; }
+        
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #1a1a2e; }
+        .chat-header { padding: 16px; border-bottom: 1px solid #0f3460; display: flex; align-items: center; }
+        .chat-header h2 { font-size: 18px; }
+        
+        .messages { flex: 1; padding: 16px; overflow-y: auto; }
+        .message { display: flex; margin-bottom: 16px; }
+        .message-avatar { width: 40px; height: 40px; border-radius: 50%; background: #0f3460; margin-right: 12px; }
+        .message-content { flex: 1; }
+        .message-header { display: flex; align-items: baseline; gap: 8px; }
+        .message-author { font-weight: bold; }
+        .message-time { color: #8e9aaf; font-size: 12px; }
+        .message-text { margin-top: 4px; color: #ccc; }
+        .message-attachments { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .attachment { background: #0f3460; padding: 8px 12px; border-radius: 4px; }
+        
+        .message-input { padding: 16px; border-top: 1px solid #0f3460; display: flex; gap: 8px; }
+        .message-input input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #0f3460; color: #eee; }
+        .message-input button { padding: 12px 24px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        
+        .login-screen { position: fixed; inset: 0; background: #1a1a2e; display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .login-box { width: 400px; background: #16213e; padding: 40px; border-radius: 16px; }
+        .login-box h1 { text-align: center; margin-bottom: 32px; }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: none; background: #0f3460; color: #eee; }
+        .login-box button { width: 100%; padding: 12px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 16px; }
+        .login-tabs { display: flex; gap: 16px; margin-bottom: 24px; }
+        .login-tab { flex: 1; padding: 12px; text-align: center; background: #0f3460; border-radius: 8px; cursor: pointer; }
+        .login-tab.active { background: #e94560; }
+        
+        .voice-overlay { position: fixed; bottom: 0; right: 0; width: 320px; background: #16213e; border-radius: 16px 16px 0 0; padding: 16px; z-index: 50; }
+        .voice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .voice-users { display: flex; flex-wrap: wrap; gap: 8px; }
+        .voice-user { width: 48px; height: 48px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; }
+        .voice-controls { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+        .voice-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #0f3460; color: white; cursor: pointer; }
+        .voice-btn.active { background: #e94560; }
+        
+        .dm-area { flex: 1; display: flex; }
+        .dm-list { width: 240px; background: #16213e; padding: 16px; border-right: 1px solid #0f3460; }
+        .dm-item { display: flex; align-items: center; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; }
+        .dm-item:hover { background: #0f3460; }
+        .dm-avatar { width: 40px; height: 40px; border-radius: 50%; background: #0f3460; margin-right: 12px; }
+        
+        .terminal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 60; }
+        .terminal-modal.active { display: flex; }
+        .terminal-window { width: 80%; height: 80%; background: #0d1117; border-radius: 8px; display: flex; flex-direction: column; }
+        .terminal-header { padding: 12px 16px; background: #161b22; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; }
+        .terminal-content { flex: 1; padding: 16px; font-family: monospace; overflow-y: auto; color: #58a6ff; }
+        .terminal-input { display: flex; border-top: 1px solid #30363d; }
+        .terminal-input input { flex: 1; padding: 12px; background: #0d1117; border: none; color: #58a6ff; font-family: monospace; }
+        .terminal-input button { padding: 12px 24px; background: #238636; border: none; color: white; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="sidebar">
+            <div class="sidebar-btn" onclick="showHome()" title="Home">🏠</div>
+            <div class="sidebar-btn" onclick="showDMs()" title="Mensajes">💬</div>
+        </div>
+        
+        <div class="server-sidebar" id="serverSidebar">
+            <div style="margin-bottom: 16px;">
+                <button onclick="showCreateServer()" style="width: 100%; padding: 12px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer;">+ Crear Servidor</button>
+            </div>
+            <div id="serverList"></div>
+        </div>
+        
+        <div class="main-content">
+            <div class="channel-sidebar" id="channelSidebar">
+                <div id="serverHeader" style="margin-bottom: 16px;">
+                    <h3 id="currentServerName">Selecciona un servidor</h3>
+                </div>
+                <div id="channelList"></div>
+            </div>
+            
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h2 id="currentChannelName">Bienvenido</h2>
+                </div>
+                <div class="messages" id="messages"></div>
+                <div class="message-input" id="messageInputArea">
+                    <input type="text" id="messageInput" placeholder="Escribe un mensaje..." onkeypress="handleMessageKeypress(event)">
+                    <button onclick="sendMessage()">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h1>Chat Server</h1>
+            <div class="login-tabs">
+                <div class="login-tab active" onclick="showLoginTab('login')">Iniciar Sesión</div>
+                <div class="login-tab" onclick="showLoginTab('register')">Registrarse</div>
+            </div>
+            <div id="loginForm">
+                <input type="text" id="loginUsername" placeholder="Usuario">
+                <input type="password" id="loginPassword" placeholder="Contraseña">
+                <button onclick="login()">Iniciar Sesión</button>
+            </div>
+            <div id="registerForm" class="hidden">
+                <input type="text" id="registerUsername" placeholder="Usuario">
+                <input type="email" id="registerEmail" placeholder="Email">
+                <input type="password" id="registerPassword" placeholder="Contraseña">
+                <button onclick="register()">Registrarse</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="voice-overlay hidden" id="voiceOverlay">
+        <div class="voice-header">
+            <span>Canale de Voz</span>
+            <button onclick="leaveVoice()" style="background: none; border: none; color: white; cursor: pointer;">✕</button>
+        </div>
+        <div class="voice-users" id="voiceUsers"></div>
+        <div class="voice-controls">
+            <button class="voice-btn" onclick="toggleMute()" id="muteBtn">🎤</button>
+            <button class="voice-btn" onclick="toggleCamera()" id="cameraBtn">📷</button>
+            <button class="voice-btn" onclick="toggleScreenShare()" id="screenBtn">🖥️</button>
+        </div>
+    </div>
+    
+    <div class="terminal-modal" id="terminalModal">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <span>Terminal</span>
+                <button onclick="closeTerminal()" style="background: none; border: none; color: white; cursor: pointer;">✕</button>
+            </div>
+            <div class="terminal-content" id="terminalOutput"></div>
+            <div class="terminal-input">
+                <input type="text" id="terminalInput" placeholder="$ " onkeypress="handleTerminalKeypress(event)">
+                <button onclick="sendTerminalCommand()">Ejecutar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        let currentUser = null;
+        let currentServer = null;
+        let currentChannel = null;
+        let ws = null;
+        let terminalWs = null;
+
+        if (token) loadUserData();
+
+        async function loadUserData() {
+            const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
+            if (res.ok) {
+                currentUser = await res.json();
+                document.getElementById('loginScreen').classList.add('hidden');
+                loadServers();
+            } else {
+                localStorage.removeItem('token');
+            }
+        }
+
+        function showLoginTab(tab) {
+            document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            if (tab === 'login') {
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('registerForm').classList.add('hidden');
+            } else {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('registerForm').classList.remove('hidden');
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                token = data.access_token;
+                localStorage.setItem('token', token);
+                loadUserData();
+            } else {
+                alert('Credenciales incorrectas');
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('registerUsername').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+            if (res.ok) {
+                login();
+            } else {
+                alert('Error al registrar');
+            }
+        }
+
+        async function loadServers() {
+            const res = await fetch('/api/servers/', { headers: { 'Authorization': `Bearer ${token}` }});
+            const servers = await res.json();
+            const list = document.getElementById('serverList');
+            list.innerHTML = servers.map(s => `
+                <div class="server-item" onclick="selectServer(${s.id})">
+                    <div class="server-icon">${s.name[0].toUpperCase()}</div>
+                    <span>${s.name}</span>
+                </div>
+            `).join('');
+        }
+
+        async function selectServer(serverId) {
+            const res = await fetch(`/api/servers/${serverId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+            currentServer = await res.json();
+            document.getElementById('currentServerName').textContent = currentServer.name;
+            loadChannels(serverId);
+        }
+
+        async function loadChannels(serverId) {
+            const res = await fetch(`/api/servers/${serverId}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const members = await res.json();
+            const channels = [];
+            for (const m of members) {
+                for (const c of m.server.channels) {
+                    if (!channels.find(ch => ch.id === c.id)) channels.push(c);
+                }
+            }
+            const list = document.getElementById('channelList');
+            list.innerHTML = `
+                <div class="channel-category">Canales de Texto</div>
+                ${channels.filter(c => c.channel_type === 'text').map(c => `
+                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', '${c.channel_type}')">
+                        <span class="icon">#</span> ${c.name}
+                    </div>
+                `).join('')}
+                <div class="channel-category">Canales de Voz</div>
+                ${channels.filter(c => c.channel_type === 'voice').map(c => `
+                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', '${c.channel_type}')">
+                        <span class="icon">🔊</span> ${c.name}
+                    </div>
+                `).join('')}
+                <div class="channel-category">Canales Personalizados</div>
+                ${channels.filter(c => c.channel_type === 'custom').map(c => `
+                    <div class="channel-item" onclick="selectChannel(${c.id}, '${c.name}', '${c.channel_type}')">
+                        <span class="icon">⚙️</span> ${c.name}
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        async function selectChannel(channelId, name, type) {
+            currentChannel = { id: channelId, name, type };
+            document.getElementById('currentChannelName').textContent = name;
+            
+            if (type === 'text') {
+                loadMessages(channelId);
+                document.getElementById('messageInputArea').style.display = 'flex';
+            } else if (type === 'voice') {
+                joinVoiceChannel(channelId);
+                document.getElementById('messageInputArea').style.display = 'none';
+            } else if (type === 'custom') {
+                document.getElementById('messageInputArea').style.display = 'none';
+                loadCustomApps(channelId);
+            }
+        }
+
+        async function loadMessages(channelId) {
+            const res = await fetch(`/api/channels/${channelId}/messages`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const messages = await res.json();
+            const list = document.getElementById('messages');
+            list.innerHTML = messages.reverse().map(m => `
+                <div class="message">
+                    <div class="message-avatar">${m.author.username[0].toUpperCase()}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">${m.author.display_name || m.author.username}</span>
+                            <span class="message-time">${new Date(m.created_at).toLocaleString()}</span>
+                        </div>
+                        <div class="message-text">${m.content || ''}</div>
+                        ${m.attachments && m.attachments.length ? `<div class="message-attachments">${m.attachments.map(a => `<a class="attachment" href="${a.file_path}" target="_blank">${a.filename}</a>`).join('')}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value;
+            if (!content || !currentChannel) return;
+            
+            await fetch(`/api/channels/${currentChannel.id}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ content, message_type: 'text' })
+            });
+            input.value = '';
+            loadMessages(currentChannel.id);
+        }
+
+        function handleMessageKeypress(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        function showHome() {
+            document.getElementById('serverSidebar').style.display = 'block';
+            document.querySelector('.channel-sidebar').style.display = 'block';
+            document.querySelector('.chat-area').style.display = 'flex';
+        }
+
+        function showDMs() {
+            loadDirectMessages();
+        }
+
+        async function loadDirectMessages() {
+            const res = await fetch('/api/direct-messages/', { headers: { 'Authorization': `Bearer ${token}` }});
+            const messages = await res.json();
+            console.log('DMs:', messages);
+        }
+
+        async function showCreateServer() {
+            const name = prompt('Nombre del servidor:');
+            if (!name) return;
+            
+            const res = await fetch('/api/servers/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, encryption_mode: 'database' })
+            });
+            if (res.ok) {
+                loadServers();
+            }
+        }
+
+        function joinVoiceChannel(channelId) {
+            ws = new WebSocket(`ws://localhost:8000/ws/voice/${channelId}?token=${token}`);
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'joined' || data.type === 'user_joined' || data.type === 'user_left') {
+                    document.getElementById('voiceOverlay').classList.remove('hidden');
+                    document.getElementById('voiceUsers').innerHTML = (data.users || []).map(u => 
+                        `<div class="voice-user">${u}</div>`
+                    ).join('');
+                }
+            };
+        }
+
+        function leaveVoice() {
+            if (ws) { ws.close(); ws = null; }
+            document.getElementById('voiceOverlay').classList.add('hidden');
+        }
+
+        function toggleMute() {
+            document.getElementById('muteBtn').classList.toggle('active');
+            if (ws) ws.send(JSON.stringify({ type: 'mute', muted: document.getElementById('muteBtn').classList.contains('active') }));
+        }
+
+        function toggleCamera() {
+            document.getElementById('cameraBtn').classList.toggle('active');
+            if (ws) ws.send(JSON.stringify({ type: 'camera', enabled: document.getElementById('cameraBtn').classList.contains('active') }));
+        }
+
+        function toggleScreenShare() {
+            document.getElementById('screenBtn').classList.toggle('active');
+            if (ws) ws.send(JSON.stringify({ type: 'screenshare', enabled: document.getElementById('screenBtn').classList.contains('active') }));
+        }
+
+        async function loadCustomApps(channelId) {
+            const res = await fetch(`/api/custom-apps/channel/${channelId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const apps = await res.json();
+            const list = document.getElementById('messages');
+            list.innerHTML = apps.length ? apps.map(a => `
+                <div style="padding: 12px; background: #0f3460; margin-bottom: 8px; border-radius: 8px;">
+                    <strong>${a.name}</strong>
+                    <p>${a.description || ''}</p>
+                    <button onclick="openTerminal(${a.id})" style="margin-top: 8px; padding: 8px 16px; background: #e94560; border: none; border-radius: 4px; color: white; cursor: pointer;">Abrir Terminal</button>
+                </div>
+            `).join('') : '<p style="color: #8e9aaf;">No hay aplicaciones personalizadas en este canal</p>';
+        }
+
+        async function openTerminal(appId) {
+            const res = await fetch(`/api/custom-apps/${appId}/terminal`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            terminalWs = new WebSocket(`ws://localhost:8000/ws/terminal/${appId}?token=${token}`);
+            terminalWs.onmessage = (event) => {
+                const d = JSON.parse(event.data);
+                if (d.type === 'output') {
+                    document.getElementById('terminalOutput').innerHTML += `<div>${d.data}</div>`;
+                }
+            };
+            
+            document.getElementById('terminalModal').classList.add('active');
+        }
+
+        function closeTerminal() {
+            if (terminalWs) { terminalWs.close(); terminalWs = null; }
+            document.getElementById('terminalModal').classList.remove('active');
+        }
+
+        function sendTerminalCommand() {
+            const input = document.getElementById('terminalInput');
+            if (terminalWs && input.value) {
+                terminalWs.send(input.value);
+                input.value = '';
+            }
+        }
+
+        function handleTerminalKeypress(e) {
+            if (e.key === 'Enter') sendTerminalCommand();
+        }
+    </script>
+</body>
+</html>
