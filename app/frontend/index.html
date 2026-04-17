@@ -77,6 +77,16 @@
         .voice-controls { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
         .voice-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #0f3460; color: white; cursor: pointer; }
         .voice-btn.active { background: #e94560; }
+        /* Voice grid layout and tiles */
+        .voice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding: 12px; width: 100%; box-sizing: border-box; align-items: start; }
+        .voice-tile { background: #0f3460; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; }
+        .tile-media { width: 100%; aspect-ratio: 16/9; max-height: 360px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .tile-video { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+        .tile-media.screenshare .tile-video, .tile-video.screenshare { object-fit: contain; background: #000; }
+        .tile-meta { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; color: #8e9aaf; font-size: 12px; }
+        .avatar-initial { font-size: 48px; color: #8e9aaf; }
+        .tile-username { color: #8e9aaf; font-size: 12px; }
+        @media (max-width: 700px) { .voice-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); } }
         
         .dm-area { flex: 1; display: flex; }
         .dm-list { width: 240px; background: #16213e; padding: 16px; border-right: 1px solid #0f3460; }
@@ -190,6 +200,8 @@
                 <div class="chat-header">
                     <h2 id="currentChannelName">Bienvenido</h2>
                 </div>
+                <!-- Voice grid moved into chat area so overlay only shows local preview -->
+                <div class="voice-grid" id="voiceGrid"></div>
                 <div class="messages" id="messages"></div>
                 <div class="message-input" id="messageInputArea">
                     <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
@@ -236,8 +248,14 @@
             <span id="voiceChannelName">Canal de Voz</span>
             <button onclick="leaveVoiceChannel()" style="background: #e94560; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer;">✕ Salir</button>
         </div>
-        <div class="voice-grid" id="voiceGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; padding: 8px; max-height: 300px; overflow-y: auto;"></div>
-            <div class="voice-controls" style="padding: 12px; background: #0f3460; display: flex; justify-content: center; gap: 16px; border-radius: 0 0 16px 0;">
+        <!-- Overlay shows only local preview (camera or screenshare) -->
+        <div id="localOverlay" style="display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 0 8px;">
+            <div style="width: 100%; aspect-ratio: 16/9; max-height: 240px; background: #16213e; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <video id="localOverlayVideo" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px; transform: scaleX(-1);"></video>
+            </div>
+            <div style="color: #8e9aaf; font-size: 13px;">Tú</div>
+        </div>
+        <div class="voice-controls" style="padding: 12px; background: #0f3460; display: flex; justify-content: center; gap: 16px; border-radius: 0 0 16px 0; margin-top: 8px;">
             <button onclick="toggleMute()" id="muteBtn" class="voice-btn" title="Silenciar">🎤</button>
             <button onclick="toggleCamera()" id="cameraBtn" class="voice-btn" title="Cámara">📷</button>
             <button onclick="toggleCameraFacing()" id="toggleFacingBtn" class="voice-btn" title="Cambiar cámara" style="display:none;">🔁</button>
@@ -548,18 +566,31 @@
             currentChannel = { id: channelId, name, type };
             document.getElementById('currentChannelName').textContent = name;
             document.getElementById('messages').innerHTML = '';
-            
+            const messagesEl = document.getElementById('messages');
+            const voiceGridEl = document.getElementById('voiceGrid');
+            const messageInputArea = document.getElementById('messageInputArea');
+            const uploadProgress = document.getElementById('uploadProgress');
+
             if (type === 'text') {
+                // show messages area, hide voice grid
                 loadMessages(channelId);
-                document.getElementById('messageInputArea').style.display = 'flex';
-                document.getElementById('uploadProgress').style.display = 'none';
+                if (messagesEl) { messagesEl.style.display = 'block'; messagesEl.style.flex = '1'; }
+                if (voiceGridEl) { voiceGridEl.style.display = 'none'; voiceGridEl.style.flex = '0'; voiceGridEl.style.maxHeight = '320px'; }
+                if (messageInputArea) messageInputArea.style.display = 'flex';
+                if (uploadProgress) uploadProgress.style.display = 'none';
             } else if (type === 'voice') {
+                // show voice grid occupying remaining space, hide messages
                 showVoiceChannelUI(channelId);
-                document.getElementById('messageInputArea').style.display = 'none';
-                document.getElementById('uploadProgress').style.display = 'none';
+                if (messagesEl) { messagesEl.style.display = 'none'; }
+                if (voiceGridEl) { voiceGridEl.style.display = 'grid'; voiceGridEl.style.flex = '1'; voiceGridEl.style.minHeight = '0'; voiceGridEl.style.maxHeight = 'none'; voiceGridEl.style.overflowY = 'auto'; }
+                if (messageInputArea) messageInputArea.style.display = 'none';
+                if (uploadProgress) uploadProgress.style.display = 'none';
             } else if (type === 'custom') {
-                document.getElementById('messageInputArea').style.display = 'none';
-                document.getElementById('uploadProgress').style.display = 'none';
+                // show messages area (used by custom apps) and hide voice grid
+                if (messagesEl) { messagesEl.style.display = 'block'; messagesEl.style.flex = '1'; messagesEl.style.minHeight = '0'; }
+                if (voiceGridEl) { voiceGridEl.style.display = 'none'; }
+                if (messageInputArea) messageInputArea.style.display = 'none';
+                if (uploadProgress) uploadProgress.style.display = 'none';
                 loadCustomApps(channelId);
             }
         }
@@ -1515,64 +1546,65 @@ if (localStream) {
             const grid = document.getElementById('voiceGrid');
             if (!grid) return;
 
-            let localHtml = `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                <div style="width: 100%; aspect-ratio: 16/9; max-height: 320px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                    ${localStream ? 
-                        `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transform: scaleX(-1);"></video>` :
-                        `<span style="font-size: 48px; color: #8e9aaf;">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
+            const currentUsername = currentUser && currentUser.username ? currentUser.username : null;
+            const localIsScreenshare = !!screenSharing;
+
+            const localTile = `<div class="voice-tile">
+                <div class="tile-media ${localIsScreenshare ? 'screenshare' : ''}">
+                    ${localStream ?
+                        `<video id="localVideo" autoplay muted playsinline class="tile-video ${localIsScreenshare ? 'screenshare' : ''}" style="transform: scaleX(-1);"></video>` :
+                        `<span class="avatar-initial">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
                     }
                 </div>
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
-                    <span style="color: #8e9aaf; font-size: 12px;">Tú</span>
-                    <span style="font-size: 12px;">${audioEnabled ? '🎤' : '🔇'}</span>
-                    <span style="font-size: 12px;">${videoEnabled ? '📷' : '📵'}</span>
+                <div class="tile-meta">
+                    <span class="tile-username">Tú</span>
+                    <span class="tile-icons">${audioEnabled ? '🎤' : '🔇'} ${videoEnabled ? '📷' : '📵'}</span>
                 </div>
             </div>`;
 
             let othersHtml = voiceUsers.filter(u => u !== (currentUser && currentUser.username)).map(u => {
                 const pc = peerConnections[u];
-                let videoContent;
                 const isScreenshare = !!screenshareUsers[u];
+                let videoContent = '';
 
                 if (pc) {
                     const receivers = pc.getReceivers();
                     const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
-
                     if (videoReceiver && videoReceiver.track) {
-                        if (isScreenshare) {
-                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px; background: #000;"></video>`;
-                        } else {
-                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video>`;
-                        }
+                        videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay playsinline class="tile-video ${isScreenshare ? 'screenshare' : ''}"></video>`;
                     } else {
-                        videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
+                        videoContent = `<span class="avatar-initial">${u[0].toUpperCase()}</span>`;
                     }
                 } else {
-                    videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
+                    videoContent = `<span class="avatar-initial">${u[0].toUpperCase()}</span>`;
                 }
 
-                return `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                    <div style="width: 100%; aspect-ratio: 16/9; max-height: 320px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #8e9aaf;">
+                return `<div class="voice-tile">
+                    <div class="tile-media ${isScreenshare ? 'screenshare' : ''}">
                         ${videoContent}
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
-                        <span style="color: #8e9aaf; font-size: 12px;">${u}</span>
-                        <span style="font-size: 12px;">🎤</span>
+                    <div class="tile-meta">
+                        <span class="tile-username">${u}</span>
+                        <span class="tile-icons">🎤</span>
                     </div>
                 </div>`;
             }).join('');
 
-            grid.innerHTML = localHtml + othersHtml;
+            grid.innerHTML = localTile + othersHtml;
 
             if (localStream) {
                 const localVid = document.getElementById('localVideo');
                 if (localVid) localVid.srcObject = localStream;
-            }
 
-            // Adjust grid sizing if someone is screensharing
-            const anyScreenshare = voiceUsers.some(u => !!screenshareUsers[u]);
-            if (grid) {
-                grid.style.gridTemplateColumns = anyScreenshare ? 'repeat(auto-fit, minmax(320px, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))';
+                const overlayVid = document.getElementById('localOverlayVideo');
+                if (overlayVid) {
+                    try {
+                        overlayVid.srcObject = localStream;
+                        overlayVid.playsInline = true;
+                        overlayVid.muted = true;
+                        overlayVid.onloadedmetadata = () => overlayVid.play().catch(() => {});
+                    } catch (e) { console.warn('Failed to attach local stream to overlay', e); }
+                }
             }
 
             for (const userId of Object.keys(peerConnections)) {
@@ -1588,11 +1620,7 @@ if (localStream) {
                     }
                     if (audioReceiver && audioReceiver.track) {
                         const stream = new MediaStream([audioReceiver.track]);
-                        try {
-                            attachStreamToElements(userId, stream);
-                        } catch (e) {
-                            console.warn('Failed attaching audio in updateVoiceGrid', e);
-                        }
+                        try { attachStreamToElements(userId, stream); } catch (e) { console.warn('Failed attaching audio in updateVoiceGrid', e); }
                     }
                 }
             }
