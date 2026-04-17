@@ -4,6 +4,8 @@ import asyncio
 import json
 import base64
 import numpy as np
+import subprocess
+import threading
 
 
 class ConnectionManager:
@@ -82,6 +84,184 @@ class ConnectionManager:
 
 voice_manager = ConnectionManager()
 terminal_manager = ConnectionManager()
+# background processes per app_id: { app_id: { proc, session_id, buffer, websockets, read_task } }
+background_processes = {}
+MAX_BG_BUFFER = 1000
+
+
+async def _handle_bg_line(app_id: int, session_id: int, stream_name: str, text: str):
+    from app.database import SessionLocal, TerminalOutput
+    entry = background_processes.get(app_id)
+    if not entry:
+        return
+    # buffer
+    try:
+        entry['buffer'].append({'stream': stream_name, 'data': text})
+        if len(entry['buffer']) > MAX_BG_BUFFER:
+            entry['buffer'].pop(0)
+    except Exception:
+        pass
+
+    # persist to DB
+    db = SessionLocal()
+    try:
+        out = TerminalOutput(session_id=session_id, output=text)
+        db.add(out)
+        db.commit()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+    # broadcast to attached websockets
+    for ws in list(entry.get('websockets', [])):
+        try:
+            await ws.send_json({"type": "output", "stream": stream_name, "data": text})
+        except Exception:
+            try:
+                entry['websockets'].discard(ws)
+            except Exception:
+                pass
+
+
+async def _background_process_finished(app_id: int):
+    from app.database import SessionLocal, TerminalSession, CustomApp
+    from datetime import datetime
+
+    entry = background_processes.get(app_id)
+    if not entry:
+        return
+
+    session_id = entry.get('session_id')
+    db = SessionLocal()
+    try:
+        # mark session ended
+        try:
+            sess = db.query(TerminalSession).filter(TerminalSession.id == session_id).first()
+            if sess:
+                sess.ended_at = datetime.utcnow()
+                sess.is_active = False
+                db.add(sess)
+                db.commit()
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        # mark app inactive
+        try:
+            app_row = db.query(CustomApp).filter(CustomApp.id == app_id).first()
+            if app_row:
+                app_row.is_active = False
+                db.add(app_row)
+                db.commit()
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        # notify attached websockets
+        for ws in list(entry.get('websockets', [])):
+            try:
+                await ws.send_json({"type": "output", "stream": "system", "data": "[process exited]\n>>> "})
+            except Exception:
+                pass
+
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+        background_processes.pop(app_id, None)
+
+
+def _start_background_process(app_id: int, tokens_bg, base_dir: str, websocket: WebSocket, app, user_id: int):
+    """Start a background subprocess using subprocess.Popen and threads (compatible with Windows)."""
+    from app.database import SessionLocal, TerminalSession
+
+    db = SessionLocal()
+    try:
+        bg_session = TerminalSession(app_id=app_id, user_id=user_id)
+        db.add(bg_session)
+        db.commit()
+        db.refresh(bg_session)
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        bg_session = None
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+    try:
+        if isinstance(tokens_bg, (list, tuple)):
+            proc = subprocess.Popen(tokens_bg, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=base_dir, text=True, bufsize=1)
+        else:
+            # tokens_bg is a string; run via shell
+            proc = subprocess.Popen(tokens_bg, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=base_dir, text=True, bufsize=1, shell=True)
+    except Exception as e:
+        return None, e
+
+    entry = {
+        'proc': proc,
+        'session_id': bg_session.id if bg_session else None,
+        'buffer': [],
+        'websockets': set([websocket]),
+        'read_threads': []
+    }
+
+    background_processes[app_id] = entry
+
+    loop = asyncio.get_event_loop()
+
+    def _reader(pipe, stream_name):
+        try:
+            for line in iter(pipe.readline, ''):
+                if not line:
+                    break
+                loop.call_soon_threadsafe(asyncio.create_task, _handle_bg_line(app_id, entry['session_id'], stream_name, line))
+        except Exception:
+            pass
+        finally:
+            try:
+                pipe.close()
+            except Exception:
+                pass
+
+    t_out = threading.Thread(target=_reader, args=(proc.stdout, 'stdout'), daemon=True)
+    t_err = threading.Thread(target=_reader, args=(proc.stderr, 'stderr'), daemon=True)
+    t_out.start()
+    t_err.start()
+    entry['read_threads'].extend([t_out, t_err])
+
+    def _waiter():
+        try:
+            proc.wait()
+        except Exception:
+            pass
+        try:
+            loop.call_soon_threadsafe(asyncio.create_task, _background_process_finished(app_id))
+        except Exception:
+            pass
+
+    t_wait = threading.Thread(target=_waiter, daemon=True)
+    t_wait.start()
+    entry['read_threads'].append(t_wait)
+
+    return entry, None
+
 
 
 def get_chat_manager():
@@ -248,6 +428,10 @@ async def handle_terminal_websocket(websocket: WebSocket, user_id: int, app_id: 
     import io
     import sys
     from builtins import compile
+    import os
+    import builtins
+    import shlex
+    from app.config import settings
     
     await websocket.accept()
     
@@ -259,6 +443,45 @@ async def handle_terminal_websocket(websocket: WebSocket, user_id: int, app_id: 
         if not app:
             await websocket.send_json({"type": "error", "message": "App not found"})
             return
+        # determine storage directory for this app's server
+        base_dir = None
+        try:
+            from app.database import Channel, Server
+            channel = db.query(Channel).filter(Channel.id == app.channel_id).first()
+        except Exception:
+            channel = None
+
+        if channel and getattr(channel, 'server_id', None):
+            server = db.query(Server).filter(Server.id == channel.server_id).first()
+            if server:
+                # sanitize server name
+                safe_name = ''.join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in (server.name or 'server'))
+                safe_name = safe_name.replace(' ', '_')
+                base_dir = os.path.join(settings.MEDIA_DIR, 'servers', f"{server.id}_{safe_name}", 'customapps')
+
+        if not base_dir:
+            # fallback location for apps not tied to a server
+            base_dir = os.path.join(settings.MEDIA_DIR, 'customapps', f"app_{app.id}")
+
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+        except Exception:
+            pass
+
+        # Prepare to override builtins.open so relative paths write into base_dir
+        prev_open = builtins.open
+        def open_override(path, *args, **kwargs):
+            try:
+                # only rewrite string/PathLike relative paths
+                if isinstance(path, (str,)):
+                    if not os.path.isabs(path):
+                        path = os.path.join(base_dir, path)
+                return prev_open(path, *args, **kwargs)
+            except Exception:
+                return prev_open(path, *args, **kwargs)
+
+        # install override and expose variable to REPL locals
+        builtins.open = open_override
         
         session = TerminalSession(app_id=app_id, user_id=user_id)
         db.add(session)
@@ -272,8 +495,28 @@ async def handle_terminal_websocket(websocket: WebSocket, user_id: int, app_id: 
             "stream": "system",
             "data": f"Python REPL - {app.name}\nType 'exit' to quit\n\n>>> "
         })
+
+        # If a background process exists for this app, attach this websocket to it and replay buffer
+        try:
+            if app_id in background_processes:
+                entry = background_processes[app_id]
+                # attach websocket
+                entry['websockets'].add(websocket)
+                # replay buffered output (limit to last N entries)
+                start = max(0, len(entry['buffer']) - MAX_BG_BUFFER)
+                for item in entry['buffer'][start:]:
+                    try:
+                        await websocket.send_json({"type": "output", "stream": item['stream'], "data": item['data']})
+                    except Exception:
+                        pass
+                await websocket.send_json({"type": "output", "stream": "system", "data": ">>> "})
+        except Exception:
+            pass
         
         local_vars = {}
+        # expose location helpers to the REPL
+        local_vars['CUSTOM_APP_DIR'] = base_dir
+        local_vars['MEDIA_DIR'] = settings.MEDIA_DIR
         
         while True:
             try:
@@ -294,7 +537,80 @@ async def handle_terminal_websocket(websocket: WebSocket, user_id: int, app_id: 
                         "data": "\n>>> "
                     })
                     continue
-                
+
+                # detect background run requests: `bg <cmd>` or trailing ` &`
+                try:
+                    txt = data.strip()
+                    bg_cmd = None
+                    if txt.startswith('bg '):
+                        bg_cmd = txt[3:].strip()
+                    elif txt.endswith(' &'):
+                        bg_cmd = txt[:-2].strip()
+                    if bg_cmd:
+                        try:
+                            tokens_bg = shlex.split(bg_cmd)
+                        except Exception:
+                            # fallback: pass raw string to run with shell=True
+                            tokens_bg = bg_cmd
+
+                        try:
+                            entry, err = _start_background_process(app_id, tokens_bg, base_dir, websocket, app, user_id)
+                            if err:
+                                await websocket.send_json({"type": "output", "stream": "stderr", "data": f"{type(err).__name__}: {err}\n>>> "})
+                                continue
+
+                            # mark app active
+                            try:
+                                app.is_active = True
+                                db.add(app)
+                                db.commit()
+                            except Exception:
+                                db.rollback()
+
+                            proc = entry.get('proc')
+                            await websocket.send_json({"type": "output", "stream": "system", "data": f"Started background process (pid={getattr(proc, 'pid', '?')})\n>>> "})
+                        except Exception as e:
+                            await websocket.send_json({"type": "output", "stream": "stderr", "data": f"{type(e).__name__}: {e}\n>>> "})
+                        continue
+                except Exception:
+                    pass
+
+                # detect `python -c "..."` invocations and run them as subprocesses
+                try:
+                    tokens = shlex.split(data)
+                except Exception:
+                    tokens = None
+
+                if tokens and len(tokens) >= 3 and tokens[0] in ('python', 'python3', 'py') and tokens[1] == '-c':
+                    script = tokens[2]
+                    # run the python -c script as a subprocess in the app base_dir so relative paths resolve there
+                    try:
+                        import subprocess as _sub
+
+                        def _run_cmd():
+                            return _sub.run([tokens[0], '-c', script], stdout=_sub.PIPE, stderr=_sub.PIPE, cwd=base_dir, text=True)
+
+                        proc = await asyncio.to_thread(_run_cmd)
+
+                        if proc.stdout:
+                            for line in proc.stdout.splitlines(keepends=True):
+                                try:
+                                    await websocket.send_json({"type": "output", "stream": "stdout", "data": line})
+                                except Exception:
+                                    pass
+
+                        if proc.stderr:
+                            for line in proc.stderr.splitlines(keepends=True):
+                                try:
+                                    await websocket.send_json({"type": "output", "stream": "stderr", "data": line})
+                                except Exception:
+                                    pass
+
+                        await websocket.send_json({"type": "output", "stream": "system", "data": ">>> "})
+                    except Exception as e:
+                        await websocket.send_json({"type": "output", "stream": "stderr", "data": f"{type(e).__name__}: {e}\n>>> "})
+                    continue
+
                 old_stdout = sys.stdout
                 sys.stdout = captured = io.StringIO()
                 
@@ -353,7 +669,28 @@ async def handle_terminal_websocket(websocket: WebSocket, user_id: int, app_id: 
             pass
         
     finally:
+        # restore builtins.open if we overrode it for this session
+        try:
+            if 'prev_open' in locals() and prev_open is not None:
+                builtins.open = prev_open
+        except Exception:
+            pass
+
         if app:
-            app.is_active = False
-            db.commit()
+            try:
+                # If there's a background process for this app still running, keep app.is_active True
+                proc_entry = background_processes.get(app_id)
+                if proc_entry and proc_entry.get('proc') is not None and getattr(proc_entry.get('proc'), 'returncode', None) is None:
+                    pass
+                else:
+                    app.is_active = False
+                    db.add(app)
+                    db.commit()
+            except Exception:
+                try:
+                    app.is_active = False
+                    db.add(app)
+                    db.commit()
+                except Exception:
+                    db.rollback()
         db.close()
