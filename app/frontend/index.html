@@ -1516,7 +1516,7 @@ if (localStream) {
             if (!grid) return;
 
             let localHtml = `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <div style="width: 100%; aspect-ratio: 16/9; max-height: 320px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                     ${localStream ? 
                         `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transform: scaleX(-1);"></video>` :
                         `<span style="font-size: 48px; color: #8e9aaf;">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
@@ -1540,9 +1540,9 @@ if (localStream) {
 
                     if (videoReceiver && videoReceiver.track) {
                         if (isScreenshare) {
-                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: auto; max-height: 260px; object-fit: contain; border-radius: 4px; background: #000;"></video>`;
+                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px; background: #000;"></video>`;
                         } else {
-                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: 140px; object-fit: cover; border-radius: 4px;"></video>`;
+                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video>`;
                         }
                     } else {
                         videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
@@ -1552,7 +1552,7 @@ if (localStream) {
                 }
 
                 return `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                    <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #8e9aaf;">
+                    <div style="width: 100%; aspect-ratio: 16/9; max-height: 320px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #8e9aaf;">
                         ${videoContent}
                     </div>
                     <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
