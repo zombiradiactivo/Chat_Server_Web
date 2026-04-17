@@ -115,6 +115,43 @@
         .member-avatar { width: 36px; height: 36px; border-radius: 50%; background: #16213e; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
         
         .hidden { display: none !important; }
+        .server-sidebar.hidden { display: none !important; }
+        @media (max-width: 700px) {
+            .voice-overlay {
+                width: 100%;
+                right: 0;
+                left: 0;
+                bottom: 0;
+                border-radius: 0;
+                padding: 12px;
+                height: 60vh;
+            }
+            .voice-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+            .voice-controls .voice-btn { width: 56px; height: 56px; font-size: 20px; }
+            .voice-controls { gap: 12px; }
+            .sidebar { width: 56px; }
+            #screenBtn[disabled] { opacity: 0.5; cursor: not-allowed; }
+            #toggleFacingBtn { display: none; }
+
+            /* Make server sidebar overlay on top of chat on small screens */
+            .server-sidebar {
+                position: fixed;
+                /* leave the left-side server icon bar visible (56px on mobile) */
+                left: 56px;
+                top: 0;
+                height: 100vh;
+                /* size to remaining viewport space */
+                width: calc(100vw - 56px);
+                max-width: 320px;
+                z-index: 600;
+                box-shadow: 2px 0 12px rgba(0,0,0,0.6);
+                overflow-y: auto;
+                background: #16213e;
+                padding: 16px;
+            }
+            .server-sidebar.hidden { display: none !important; }
+            .main-content { margin-left: 0; }
+        }
     </style>
 </head>
 <body>
@@ -128,10 +165,11 @@
             <div class="sidebar-bottom">
                 <div class="sidebar-btn" onclick="showJoinServer()" title="Unirse a Servidor">➕</div>
                 <div class="sidebar-btn" onclick="showCreateServer()" title="Crear Servidor">⚙️</div>
+                <div class="sidebar-btn" onclick="logout()" title="Cerrar sesión">🔒</div>
             </div>
         </div>
         
-        <div class="server-sidebar" id="serverSidebar">
+        <div class="server-sidebar hidden" id="serverSidebar">
             <div class="server-header-row" style="margin-bottom: 16px;">
                 <h3 id="currentServerName">Selecciona un servidor</h3>
                 <div style="position: relative;">
@@ -199,11 +237,13 @@
             <button onclick="leaveVoiceChannel()" style="background: #e94560; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer;">✕ Salir</button>
         </div>
         <div class="voice-grid" id="voiceGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; padding: 8px; max-height: 300px; overflow-y: auto;"></div>
-        <div class="voice-controls" style="padding: 12px; background: #0f3460; display: flex; justify-content: center; gap: 16px; border-radius: 0 0 16px 0;">
-            <button onclick="toggleMute()" id="muteBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Silenciar">🎤</button>
-            <button onclick="toggleCamera()" id="cameraBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Cámara">📷</button>
-            <button onclick="toggleScreenShare()" id="screenBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Compartir pantalla">🖥️</button>
-            <button onclick="showVoiceSettings()" id="settingsBtn" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #16213e; color: white; cursor: pointer; font-size: 20px;" title="Configuración">⚙️</button>
+            <div class="voice-controls" style="padding: 12px; background: #0f3460; display: flex; justify-content: center; gap: 16px; border-radius: 0 0 16px 0;">
+            <button onclick="toggleMute()" id="muteBtn" class="voice-btn" title="Silenciar">🎤</button>
+            <button onclick="toggleCamera()" id="cameraBtn" class="voice-btn" title="Cámara">📷</button>
+            <button onclick="toggleCameraFacing()" id="toggleFacingBtn" class="voice-btn" title="Cambiar cámara" style="display:none;">🔁</button>
+            <button onclick="toggleScreenShare()" id="screenBtn" class="voice-btn" title="Compartir pantalla">🖥️</button>
+            <button onclick="enableRemoteAudio()" id="enableAudioBtn" class="voice-btn hidden" title="Activar audio">🔊</button>
+            <button onclick="showVoiceSettings()" id="settingsBtn" class="voice-btn" title="Configuración">⚙️</button>
         </div>
     </div>
     
@@ -267,7 +307,84 @@
         let chatWs = null;
         let terminalWs = null;
 
+        let mobileFacingMode = 'user';
+        function isMobile() {
+            return /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent || navigator.vendor || window.opera);
+        }
+        let screenshareUsers = {};
+
+        function supportsDisplayMedia() {
+            try {
+                if (navigator && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') return true;
+                if (typeof navigator.getDisplayMedia === 'function') return true;
+                if (typeof window.getDisplayMedia === 'function') return true;
+            } catch (e) {}
+            return false;
+        }
+        
+        function userElementId(prefix, username) {
+            try {
+                const id = String(username).replace(/[^a-zA-Z0-9_-]/g, '_');
+                return `${prefix}_${id}`;
+            } catch (e) {
+                return `${prefix}_${username}`;
+            }
+        }
+
+        function showEnableAudioButton() {
+            const btn = document.getElementById('enableAudioBtn');
+            if (btn) btn.classList.remove('hidden');
+        }
+
+        async function enableRemoteAudio() {
+            const btn = document.getElementById('enableAudioBtn');
+            if (btn) btn.classList.add('hidden');
+            const audios = document.querySelectorAll('audio[id^="remoteAudio_"]');
+            for (const a of audios) {
+                try { await a.play(); } catch (e) { console.warn('Unable to autoplay audio:', e); }
+            }
+        }
+
+        function attachStreamToElements(username, stream) {
+            // Attach video
+            try {
+                const vidId = userElementId('remoteVideo', username);
+                const videoEl = document.getElementById(vidId);
+                if (videoEl) {
+                    videoEl.srcObject = stream;
+                    videoEl.playsInline = true;
+                    videoEl.muted = false;
+                    videoEl.onloadedmetadata = () => {
+                        videoEl.play().catch(err => { console.warn('Video autoplay blocked', err); });
+                    };
+                }
+            } catch (e) {}
+
+            // Attach audio
+            try {
+                const audId = userElementId('remoteAudio', username);
+                let audioEl = document.getElementById(audId);
+                if (!audioEl) {
+                    audioEl = document.createElement('audio');
+                    audioEl.id = audId;
+                    audioEl.autoplay = true;
+                    audioEl.playsInline = true;
+                    audioEl.style.display = 'none';
+                    document.body.appendChild(audioEl);
+                }
+                audioEl.srcObject = stream;
+                audioEl.onloadedmetadata = () => {
+                    audioEl.play().catch(err => { console.warn('Audio autoplay blocked', err); showEnableAudioButton(); });
+                };
+            } catch (e) {}
+        }
+
         if (token) loadUserData();
+
+        function getWsUrl(path) {
+            const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+            return `${proto}//${location.host}${path}`;
+        }
 
         async function loadUserData() {
             const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
@@ -331,13 +448,43 @@
             const servers = await res.json();
             const list = document.getElementById('serverListSidebar');
             list.innerHTML = servers.map(s => `
-                <div class="server-icon-small" onclick="selectServer(${s.id})" title="${s.name}">${s.name[0].toUpperCase()}</div>
+                <div class="server-icon-small" onclick="selectServer(${s.id}, this)" title="${s.name}">${s.name[0].toUpperCase()}</div>
             `).join('');
         }
 
-        async function selectServer(serverId) {
-            document.querySelectorAll('.server-icon-small').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
+        function logout() {
+            try {
+                if (ws) { ws.close(); ws = null; }
+                if (chatWs) { chatWs.close(); chatWs = null; }
+            } catch (e) {}
+            localStorage.removeItem('token');
+            token = null;
+            currentUser = null;
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('serverListSidebar').innerHTML = '';
+            document.getElementById('channelList').innerHTML = '';
+            document.getElementById('voiceOverlay').classList.add('hidden');
+            setTimeout(() => location.reload(), 100);
+        }
+
+        async function selectServer(serverId, el) {
+            const sidebar = document.getElementById('serverSidebar');
+
+            // Si el mismo server está seleccionado, alternar visibilidad del sidebar
+            if (currentServer && currentServer.id === serverId) {
+                if (!sidebar.classList.contains('hidden')) {
+                    sidebar.classList.add('hidden');
+                    if (el) el.classList.remove('active');
+                    document.getElementById('channelList').innerHTML = '';
+                    return;
+                }
+            }
+
+            // Mostrar sidebar y marcar icono activo
+            sidebar.classList.remove('hidden');
+            document.querySelectorAll('.server-icon-small').forEach(e => e.classList.remove('active'));
+            if (el) el.classList.add('active');
+
             const res = await fetch(`/api/servers/${serverId}`, { headers: { 'Authorization': `Bearer ${token}` }});
             currentServer = await res.json();
             document.getElementById('currentServerName').textContent = currentServer.name;
@@ -419,79 +566,16 @@
 
         function showVoiceChannelUI(channelId) {
             joinVoiceChannel(channelId);
-            updateVoiceChatGrid();
+            updateVoiceGrid();
         }
 
         function updateVoiceChatGrid() {
-            const grid = document.getElementById('voiceChatGrid');
-            if (!grid) return;
-            
-            let localHtml = `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                    ${localStream ? 
-                        `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transform: scaleX(-1);"></video>` :
-                        `<span style="font-size: 48px; color: #8e9aaf;">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
-                    }
-                </div>
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
-                    <span style="color: #8e9aaf; font-size: 12px;">Tú</span>
-                    <span style="font-size: 12px;">${audioEnabled ? '🎤' : '🔇'}</span>
-                    <span style="font-size: 12px;">${videoEnabled ? '📷' : '📵'}</span>
-                </div>
-            </div>`;
-            
-            let othersHtml = voiceUsers.filter(u => u !== (currentUser && currentUser.username)).map(u => {
-                const pc = peerConnections[u];
-                let videoContent;
-                
-                if (pc) {
-                    const receivers = pc.getReceivers();
-                    const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
-                    
-                    if (videoReceiver && videoReceiver.track) {
-                        videoContent = `<video id="remoteVideo_${u}" autoplay style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video>`;
-                    } else {
-                        videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
-                    }
-                } else {
-                    videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
-                }
-                
-                return `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                    <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #8e9aaf;">
-                        ${videoContent}
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
-                        <span style="color: #8e9aaf; font-size: 12px;">${u}</span>
-                        <span style="font-size: 12px;">🎤</span>
-                    </div>
-                </div>`;
-            }).join('');
-            
-            grid.innerHTML = localHtml + othersHtml;
-            
-            if (localStream) {
-                const localVid = document.getElementById('localVideo');
-                if (localVid) localVid.srcObject = localStream;
-            }
-            
-            for (const userId of Object.keys(peerConnections)) {
-                const pc = peerConnections[userId];
-                if (pc) {
-                    const receivers = pc.getReceivers();
-                    const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
-                    if (videoReceiver && videoReceiver.track) {
-                        const stream = new MediaStream([videoReceiver.track]);
-                        const remoteVid = document.getElementById('remoteVideo_' + userId);
-                        if (remoteVid) remoteVid.srcObject = stream;
-                    }
-                }
-            }
+            updateVoiceGrid();
         }
 
         function updateVoiceChatGridWithStreams() {
             console.log('Updating voice chat grid with streams');
-            updateVoiceChatGrid();
+            updateVoiceGrid();
         }
 
         async function loadMessages(channelId) {
@@ -505,7 +589,7 @@
             if (chatWs) {
                 chatWs.close();
             }
-            chatWs = new WebSocket(`ws://localhost:8000/ws/chat/${channelId}?token=${token}`);
+            chatWs = new WebSocket(getWsUrl(`/ws/chat/${channelId}?token=${token}`));
             chatWs.onopen = () => {
                 console.log('Chat WebSocket connected to channel', channelId);
             };
@@ -916,14 +1000,30 @@
 
         function joinVoiceChannel(channelId) {
             console.log('Joining voice channel:', channelId);
-            ws = new WebSocket(`ws://localhost:8000/ws/voice/${channelId}?token=${token}`);
+            ws = new WebSocket(getWsUrl(`/ws/voice/${channelId}?token=${token}`));
             
             ws.onopen = () => {
                 console.log('WebSocket connected');
                 document.getElementById('voiceChannelName').textContent = currentChannel.name;
                 document.getElementById('voiceOverlay').classList.remove('hidden');
                 updateVoiceGrid();
-                
+
+                // Mostrar control de cambio de cámara en móviles
+                try {
+                    const tfb = document.getElementById('toggleFacingBtn');
+                    if (tfb && isMobile()) tfb.style.display = 'inline-flex';
+                } catch (e) {}
+
+                // Desactivar compartir pantalla si no está soportado
+                try {
+                        const screenBtn = document.getElementById('screenBtn');
+                        if (!supportsDisplayMedia()) {
+                            if (screenBtn) { screenBtn.disabled = true; screenBtn.title = 'Compartir pantalla no soportado en este dispositivo'; }
+                        } else {
+                            if (screenBtn) { screenBtn.disabled = false; screenBtn.title = 'Compartir pantalla'; }
+                        }
+                } catch (e) {}
+
                 initLocalMedia().catch(e => console.log('No media:', e));
             };
             
@@ -967,15 +1067,20 @@
                 } else if (data.type === 'user_screenshare') {
                     console.log('User screenshare:', data.from_username || data.user_id, 'enabled:', data.enabled);
                     const username = data.from_username || String(data.user_id);
-                    const remoteVideo = document.getElementById('remoteVideo_' + username);
-                    if (remoteVideo) {
-                        if (data.enabled) {
-                            remoteVideo.style.border = '2px solid #e94560';
-                        } else {
-                            remoteVideo.style.border = 'none';
+                    screenshareUsers[username] = !!data.enabled;
+                    // mark remote video element if exists
+                    try {
+                        const vidId = userElementId('remoteVideo', username);
+                        const remoteVideo = document.getElementById(vidId);
+                        if (remoteVideo) {
+                            if (data.enabled) {
+                                remoteVideo.style.border = '2px solid #e94560';
+                            } else {
+                                remoteVideo.style.border = 'none';
+                            }
                         }
-                    }
-                    updateVoiceChatGrid();
+                    } catch (e) {}
+                    updateVoiceGrid();
                 }
             };
             
@@ -1018,11 +1123,10 @@
             
             pc.ontrack = (event) => {
                 console.log('Received track from', remoteUserId, 'tracks:', event.streams[0].getTracks());
-                const remoteVideo = document.getElementById('remoteVideo_' + remoteUserId);
-                if (remoteVideo) {
-                    remoteVideo.srcObject = event.streams[0];
-                } else {
-                    console.log('Remote video element not found, will retry');
+                try {
+                    attachStreamToElements(remoteUserId, event.streams[0]);
+                } catch (e) {
+                    console.warn('Failed to attach stream to elements, will retry', e);
                     setTimeout(() => updateVoiceChatGridWithStreams(), 500);
                 }
             };
@@ -1079,7 +1183,12 @@ let pc = peerConnections[remoteUserId];
             pc.ontrack = (event) => {
                 console.log('Received track from', remoteUserId, 'kind:', event.track.kind, 'id:', event.track.id);
                 console.log('Stream tracks:', event.streams[0].getTracks().map(t => t.kind));
-                updateVoiceChatGridWithStreams();
+                try {
+                    attachStreamToElements(remoteUserId, event.streams[0]);
+                } catch (e) {
+                    console.warn('Failed to attach stream (offer side), will call update', e);
+                    updateVoiceChatGridWithStreams();
+                }
             };
 
 if (localStream) {
@@ -1166,6 +1275,8 @@ if (localStream) {
                 document.getElementById('screenBtn').classList.remove('active');
                 document.getElementById('screenBtn').style.background = '#16213e';
 
+                // clear local screenshare flag
+                if (currentUser && currentUser.username) screenshareUsers[currentUser.username] = false;
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'screenshare', enabled: false }));
                 }
@@ -1185,9 +1296,13 @@ if (localStream) {
                     
                     for (const peerId of Object.keys(peerConnections)) {
                         const pc = peerConnections[peerId];
-                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                        if (sender) {
-                            await sender.replaceTrack(camTrack);
+                        try {
+                            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                            if (sender) {
+                                await sender.replaceTrack(camTrack);
+                            } else {
+                                pc.addTrack(camTrack, localStream);
+                            }
                             const offer = await pc.createOffer();
                             await pc.setLocalDescription(offer);
                             ws.send(JSON.stringify({
@@ -1195,6 +1310,8 @@ if (localStream) {
                                 sdp: offer,
                                 target_user_id: peerId
                             }));
+                        } catch (err) {
+                            console.error('Error sending camera update to', peerId, err);
                         }
                     }
                 } catch (e) {
@@ -1203,45 +1320,63 @@ if (localStream) {
                 }
                 
                 updateVoiceChatGrid();
+                updateVoiceGrid();
             } else {
                 console.log('Starting screen share');
+                if (!supportsDisplayMedia()) {
+                    alert('Compartir pantalla no está disponible en este navegador o dispositivo. Usa Chrome en Android o la versión de escritorio. iOS no lo soporta.');
+                    return;
+                }
+
                 try {
-                    screenStream = await navigator.mediaDevices.getDisplayMedia({
-                        video: { cursor: 'always' },
-                        audio: false
-                    });
+                    // Try the standard API first, fall back if necessary
+                    if (navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+                        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
+                    } else if (typeof navigator.getDisplayMedia === 'function') {
+                        screenStream = await navigator.getDisplayMedia({ video: true });
+                    } else if (typeof window.getDisplayMedia === 'function') {
+                        screenStream = await window.getDisplayMedia({ video: true });
+                    } else {
+                        throw new Error('No getDisplayMedia implementation');
+                    }
+
                     console.log('Got screen stream:', screenStream.id);
-                    
+
                     const screenTrack = screenStream.getVideoTracks()[0];
                     localVideoTrack = screenTrack;
-                    
+
                     if (localStream) {
                         localStream.getVideoTracks().forEach(t => localStream.removeTrack(t));
                         localStream.addTrack(screenTrack);
                     } else {
                         localStream = new MediaStream([screenTrack]);
                     }
-                    
+
+                    // mark local as screensharing
+                    if (currentUser && currentUser.username) screenshareUsers[currentUser.username] = true;
+
                     for (const peerId of Object.keys(peerConnections)) {
                         const pc = peerConnections[peerId];
-                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                        if (sender) {
-                            await sender.replaceTrack(screenTrack);
+                        try {
+                            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                            if (sender) {
+                                await sender.replaceTrack(screenTrack);
+                            } else {
+                                pc.addTrack(screenTrack, localStream);
+                            }
                             const offer = await pc.createOffer();
                             await pc.setLocalDescription(offer);
-                            ws.send(JSON.stringify({
-                                type: 'offer',
-                                sdp: offer,
-                                target_user_id: peerId
-                            }));
+                            ws.send(JSON.stringify({ type: 'offer', sdp: offer, target_user_id: peerId }));
+                        } catch (err) {
+                            console.error('Error sending screenshare update to', peerId, err);
                         }
                     }
-                    
+
                     screenTrack.onended = () => {
                         console.log('Screen share ended by user');
                         toggleScreenShare();
                     };
-                    
+
                     screenSharing = true;
                     document.getElementById('screenBtn').classList.add('active');
                     document.getElementById('screenBtn').style.background = '#e94560';
@@ -1250,10 +1385,14 @@ if (localStream) {
                         ws.send(JSON.stringify({ type: 'screenshare', enabled: true }));
                     }
 
-                    updateVoiceChatGrid();
+                    updateVoiceGrid();
                 } catch (err) {
                     console.error('Error getting display media:', err);
-                    alert('Error al compartir pantalla: ' + err.message);
+                    if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
+                        alert('Permite compartir pantalla en el navegador. Comprueba permisos o usa HTTPS.');
+                    } else {
+                        alert('Error al compartir pantalla: ' + (err.message || err));
+                    }
                 }
             }
         }
@@ -1305,14 +1444,20 @@ if (localStream) {
                     return;
                 }
                 
-                let constraints = { 
+                let videoConstraints = false;
+                if (hasVideo) {
+                    if (isMobile()) {
+                        videoConstraints = { facingMode: mobileFacingMode, width: { ideal: 640 }, height: { ideal: 480 } };
+                    } else {
+                        videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
+                    }
+                }
+
+                let constraints = {
                     audio: hasAudio ? true : false,
-                    video: hasVideo ? {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    } : false
+                    video: videoConstraints
                 };
-                
+
                 localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 
                 if (localStream.getVideoTracks().length > 0) {
@@ -1328,34 +1473,128 @@ if (localStream) {
             }
         }
 
+        async function toggleCameraFacing() {
+            if (!isMobile()) return;
+            mobileFacingMode = mobileFacingMode === 'user' ? 'environment' : 'user';
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mobileFacingMode }, audio: false });
+                const newTrack = newStream.getVideoTracks()[0];
+                if (localStream) {
+                    localStream.getVideoTracks().forEach(t => localStream.removeTrack(t));
+                    localStream.addTrack(newTrack);
+                    localVideoTrack = newTrack;
+                } else {
+                    localStream = new MediaStream([newTrack]);
+                    localVideoTrack = newTrack;
+                }
+
+                for (const peerId of Object.keys(peerConnections)) {
+                    const pc = peerConnections[peerId];
+                    try {
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            await sender.replaceTrack(newTrack);
+                        } else {
+                            pc.addTrack(newTrack, localStream);
+                        }
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        ws.send(JSON.stringify({ type: 'offer', sdp: offer, target_user_id: peerId }));
+                    } catch (err) {
+                        console.error('Error updating peer with new camera track', peerId, err);
+                    }
+                }
+
+                updateVoiceGrid();
+            } catch (err) {
+                console.error('Error toggling camera facing:', err);
+            }
+        }
+
         function updateVoiceGrid() {
             const grid = document.getElementById('voiceGrid');
             if (!grid) return;
-            
+
             let localHtml = `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                <div style="width: 100%; height: 120px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                     ${localStream ? 
-                        `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video>` :
+                        `<video id="localVideo" autoplay muted style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transform: scaleX(-1);"></video>` :
                         `<span style="font-size: 48px; color: #8e9aaf;">${currentUser ? currentUser.username[0].toUpperCase() : '?'}</span>`
                     }
                 </div>
-                <div style="text-align: center; margin-top: 4px; color: #8e9aaf; font-size: 12px;">Tú</div>
-            </div>`;
-            
-            let othersHtml = voiceUsers.filter(u => u !== (currentUser && currentUser.username)).map(u => `
-                <div style="background: #0f3460; border-radius: 8px; padding: 8px;">
-                    <div style="width: 100%; height: 120px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #8e9aaf;">
-                        <span style="font-size: 48px;">${u[0].toUpperCase()}</span>
-                    </div>
-                    <div style="text-align: center; margin-top: 4px; color: #8e9aaf; font-size: 12px;">${u}</div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
+                    <span style="color: #8e9aaf; font-size: 12px;">Tú</span>
+                    <span style="font-size: 12px;">${audioEnabled ? '🎤' : '🔇'}</span>
+                    <span style="font-size: 12px;">${videoEnabled ? '📷' : '📵'}</span>
                 </div>
-            `).join('');
-            
+            </div>`;
+
+            let othersHtml = voiceUsers.filter(u => u !== (currentUser && currentUser.username)).map(u => {
+                const pc = peerConnections[u];
+                let videoContent;
+                const isScreenshare = !!screenshareUsers[u];
+
+                if (pc) {
+                    const receivers = pc.getReceivers();
+                    const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
+
+                    if (videoReceiver && videoReceiver.track) {
+                        if (isScreenshare) {
+                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: auto; max-height: 260px; object-fit: contain; border-radius: 4px; background: #000;"></video>`;
+                        } else {
+                            videoContent = `<video id="${userElementId('remoteVideo', u)}" autoplay style="width: 100%; height: 140px; object-fit: cover; border-radius: 4px;"></video>`;
+                        }
+                    } else {
+                        videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
+                    }
+                } else {
+                    videoContent = `<span style="font-size: 48px; color: #8e9aaf;">${u[0].toUpperCase()}</span>`;
+                }
+
+                return `<div style="background: #0f3460; border-radius: 8px; padding: 8px;">
+                    <div style="width: 100%; height: 140px; background: #16213e; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #8e9aaf;">
+                        ${videoContent}
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
+                        <span style="color: #8e9aaf; font-size: 12px;">${u}</span>
+                        <span style="font-size: 12px;">🎤</span>
+                    </div>
+                </div>`;
+            }).join('');
+
             grid.innerHTML = localHtml + othersHtml;
-            
+
             if (localStream) {
                 const localVid = document.getElementById('localVideo');
                 if (localVid) localVid.srcObject = localStream;
+            }
+
+            // Adjust grid sizing if someone is screensharing
+            const anyScreenshare = voiceUsers.some(u => !!screenshareUsers[u]);
+            if (grid) {
+                grid.style.gridTemplateColumns = anyScreenshare ? 'repeat(auto-fit, minmax(320px, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))';
+            }
+
+            for (const userId of Object.keys(peerConnections)) {
+                const pc = peerConnections[userId];
+                if (pc) {
+                    const receivers = pc.getReceivers();
+                    const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
+                    const audioReceiver = receivers.find(r => r.track && r.track.kind === 'audio');
+                    if (videoReceiver && videoReceiver.track) {
+                        const stream = new MediaStream([videoReceiver.track]);
+                        const remoteVid = document.getElementById(userElementId('remoteVideo', userId));
+                        if (remoteVid) remoteVid.srcObject = stream;
+                    }
+                    if (audioReceiver && audioReceiver.track) {
+                        const stream = new MediaStream([audioReceiver.track]);
+                        try {
+                            attachStreamToElements(userId, stream);
+                        } catch (e) {
+                            console.warn('Failed attaching audio in updateVoiceGrid', e);
+                        }
+                    }
+                }
             }
         }
 
@@ -1618,7 +1857,7 @@ async function loadCustomApps(channelId) {
             document.getElementById('terminalOutput').innerHTML = '';
             document.getElementById('terminalModal').classList.add('active');
             
-            terminalWs = new WebSocket(`ws://localhost:8000/ws/terminal/${appId}?token=${token}`);
+            terminalWs = new WebSocket(getWsUrl(`/ws/terminal/${appId}?token=${token}`));
             
             terminalWs.onopen = () => {
                 console.log('Terminal WebSocket connected');
