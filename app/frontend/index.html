@@ -427,7 +427,7 @@
             }
         }
 
-        async function login() {
+        async function login(silent = false) {
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             const res = await fetch('/api/auth/login', {
@@ -441,6 +441,7 @@
                 localStorage.setItem('token', token);
                 loadUserData();
             } else {
+                if (silent) throw new Error('login_failed');
                 alert('Credenciales incorrectas');
             }
         }
@@ -455,7 +456,11 @@
                 body: JSON.stringify({ username, email, password })
             });
             if (res.ok) {
-                login();
+                try {
+                    await login(true);
+                } catch (e) {
+                    alert('Usuario registrado. Inicia sesión manualmente.');
+                }
             } else {
                 alert('Error al registrar');
             }
@@ -512,11 +517,9 @@
         async function showJoinServer() {
             const code = prompt('Código de invitación:');
             if (!code) return;
-            const parts = code.split('/');
-            const serverId = parts[parts.length - 2];
-            const inviteCode = parts[parts.length - 1];
+            const inviteCode = code.trim();
             
-            const res = await fetch(`/api/servers/${serverId}/join/${inviteCode}`, {
+            const res = await fetch(`/api/servers/join/${inviteCode}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -529,14 +532,9 @@
         }
 
         async function loadChannels(serverId) {
-            const serverRes = await fetch(`/api/servers/${serverId}`, { headers: { 'Authorization': `Bearer ${token}` }});
-            const server = await serverRes.json();
-            console.log('Server response:', server);
-            
-            let channels = [];
-            if (server.channels) {
-                channels = server.channels;
-            }
+            const channelsRes = await fetch(`/api/servers/${serverId}/channels`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const channels = await channelsRes.json();
+            console.log('Channels:', channels);
             
             console.log('Channels:', channels);
             const list = document.getElementById('channelList');
@@ -831,65 +829,121 @@
             } else if (tab === 'roles') {
                 const res = await fetch(`/api/servers/${currentServer.id}/roles`, { headers: { 'Authorization': `Bearer ${token}` }});
                 const roles = await res.json();
+                const permissionOptions = [
+                    { key: 'can_create_channel', label: 'Crear canales' },
+                    { key: 'can_manage_channels', label: 'Gestionar canales' },
+                    { key: 'can_manage_roles', label: 'Gestionar roles' },
+                    { key: 'can_invite', label: 'Invitar usuarios' },
+                    { key: 'can_kick', label: 'Expulsar usuarios' }
+                ];
                 content.innerHTML = `
                     <div class="settings-section">
                         <h3>Roles</h3>
-                        <div id="rolesList">${roles.map(r => `
-                            <div class="role-item">
-                                <div style="display: flex; align-items: center;">
-                                    <div class="role-color" style="background: ${r.color}"></div>
-                                    <span>${r.name}</span>
+                        <div id="rolesList">${roles.map(r => {
+                            const perms = JSON.parse(r.permissions || '{}');
+                            return `
+                            <div class="role-item" style="flex-direction: column; align-items: stretch;">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <div style="display: flex; align-items: center;">
+                                        <div class="role-color" style="background: ${r.color}; width: 20px; height: 20px; border-radius: 50%; margin-right: 8px;"></div>
+                                        <input type="text" id="roleName_${r.id}" value="${r.name}" style="background: transparent; border: 1px solid #3f4149; color: white; padding: 4px 8px; border-radius: 4px; margin-right: 8px;">
+                                        <input type="color" id="roleColor_${r.id}" value="${r.color}" style="margin-right: 8px;">
+                                    </div>
+                                    <div>
+                                        <button onclick="saveRole(${r.id})" style="background: #238636; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; margin-right: 4px;">Guardar</button>
+                                        <button onclick="deleteRole(${r.id})" style="background: #e94560; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+                                    </div>
                                 </div>
-                                <button onclick="deleteRole(${r.id})" style="background: #e94560; border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                    ${permissionOptions.map(p => `
+                                        <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #b9bbbe;">
+                                            <input type="checkbox" id="perm_${r.id}_${p.key}" ${perms[p.key] ? 'checked' : ''}> ${p.label}
+                                        </label>
+                                    `).join('')}
+                                </div>
                             </div>
-                        `).join('')}</div>
-                        <div style="margin-top: 16px;">
+                            `;
+                        }).join('')}</div>
+                        <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
                             <input type="text" class="settings-input" id="newRoleName" placeholder="Nombre del rol">
-                            <input type="color" id="newRoleColor" value="#e94560" style="margin-right: 8px;">
+                            <input type="color" id="newRoleColor" value="#e94560">
                             <button onclick="createRole()" style="padding: 10px 20px; background: #238636; border: none; border-radius: 6px; color: white; cursor: pointer;">Crear Rol</button>
                         </div>
                     </div>
                 `;
             } else if (tab === 'members') {
-                const res = await fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
-                const members = await res.json();
+                const [membersRes, rolesRes] = await Promise.all([
+                    fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }}),
+                    fetch(`/api/servers/${currentServer.id}/roles`, { headers: { 'Authorization': `Bearer ${token}` }})
+                ]);
+                const members = await membersRes.json();
+                const roles = await rolesRes.json();
                 content.innerHTML = `
                     <div class="settings-section">
                         <h3>Miembros (${members.length})</h3>
-                        ${members.map(m => `
-                            <div class="member-item">
-                                <div class="member-avatar">${m.user.username[0].toUpperCase()}</div>
-                                <div style="flex: 1;">
-                                    <div>${m.user.display_name || m.user.username}</div>
-                                    <div style="color: #8e9aaf; font-size: 12px;">@${m.user.username}</div>
+                        ${members.map(m => {
+                            const memberRoles = m.roles || [];
+                            const memberRoleIds = memberRoles.map(r => r.id);
+                            return `
+                            <div class="member-item" style="flex-direction: column; align-items: stretch;">
+                                <div style="display: flex; align-items: center;">
+                                    <div class="member-avatar">${m.user.username[0].toUpperCase()}</div>
+                                    <div style="flex: 1; margin-left: 8px;">
+                                        <div>${m.user.display_name || m.user.username}</div>
+                                        <div style="color: #8e9aaf; font-size: 12px;">@${m.user.username}</div>
+                                    </div>
+                                    ${m.user.id === currentServer.owner_id ? '<span style="color: #e94560;">Dueño</span>' : ''}
                                 </div>
-                                ${m.user.id === currentServer.owner_id ? '<span style="color: #e94560;">Dueño</span>' : ''}
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                    ${roles.map(r => {
+                                        const hasRole = memberRoleIds.includes(r.id);
+                                        return `
+                                        <button onclick="toggleMemberRole(${m.id}, ${r.id})" 
+                                            style="background: ${hasRole ? r.color : '#4f545c'}; border: none; color: white; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-size: 12px;">
+                                            ${r.name}
+                                        </button>
+                                        `;
+                                    }).join('')}
+                                </div>
                             </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 `;
             } else if (tab === 'channels') {
-                const res = await fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
-                const members = await res.json();
-                const channels = [];
-                for (const m of members) {
-                    for (const c of m.server.channels) {
-                        if (!channels.find(ch => ch.id === c.id)) channels.push(c);
-                    }
-                }
+                const [channelsRes, rolesRes] = await Promise.all([
+                    fetch(`/api/servers/${currentServer.id}/channels`, { headers: { 'Authorization': `Bearer ${token}` }}),
+                    fetch(`/api/servers/${currentServer.id}/roles`, { headers: { 'Authorization': `Bearer ${token}` }})
+                ]);
+                const channels = await channelsRes.json();
+                const roles = await rolesRes.json();
                 content.innerHTML = `
                     <div class="settings-section">
                         <h3>Canales</h3>
-                        ${channels.map(c => `
-                            <div class="role-item">
-                                <div style="display: flex; align-items: center;">
-                                    <span style="margin-right: 8px;">${c.channel_type === 'text' ? '#' : c.channel_type === 'voice' ? '🔊' : '⚙️'}</span>
-                                    <span>${c.name}</span>
-                                    <span style="color: #8e9aaf; margin-left: 8px;">(${c.channel_type})</span>
+                        ${channels.map(c => {
+                            const channelRole = roles.find(r => r.id === c.required_role_id);
+                            return `
+                            <div class="role-item" style="flex-direction: column; align-items: stretch;">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="margin-right: 8px;">${c.channel_type === 'text' ? '#' : c.channel_type === 'voice' ? '🔊' : '⚙️'}</span>
+                                        <span>${c.name}</span>
+                                        <span style="color: #8e9aaf; margin-left: 8px;">(${c.channel_type})</span>
+                                        ${channelRole ? `<span style="background: ${channelRole.color}; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 4px;">🔒 ${channelRole.name}</span>` : ''}
+                                    </div>
+                                    <button onclick="deleteChannel(${c.id})" style="background: #e94560; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Eliminar</button>
                                 </div>
-                                <button onclick="deleteChannel(${c.id})" style="background: #e94560; border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+                                <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 12px; color: #b9bbbe;">Rol requerido:</span>
+                                    <select id="channelRole_${c.id}" style="background: #2f3136; color: white; border: 1px solid #3f4149; padding: 4px; border-radius: 4px;">
+                                        <option value="">Público</option>
+                                        ${roles.map(r => `<option value="${r.id}" ${c.required_role_id === r.id ? 'selected' : ''}>${r.name}</option>`).join('')}
+                                    </select>
+                                    <button onclick="saveChannelRole(${c.id})" style="background: #238636; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Guardar</button>
+                                </div>
                             </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 `;
             }
@@ -939,7 +993,30 @@
             }
         }
 
-        async function deleteChannel(channelId) {
+        async function saveRole(roleId) {
+            const name = document.getElementById(`roleName_${roleId}`).value;
+            const color = document.getElementById(`roleColor_${roleId}`).value;
+            const permissionKeys = ['can_create_channel', 'can_manage_channels', 'can_manage_roles', 'can_invite', 'can_kick'];
+            const permissions = {};
+            for (const key of permissionKeys) {
+                const checkbox = document.getElementById(`perm_${roleId}_${key}`);
+                if (checkbox && checkbox.checked) {
+                    permissions[key] = true;
+                }
+            }
+            
+            const res = await fetch(`/api/servers/${currentServer.id}/roles/${roleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, color, permissions: JSON.stringify(permissions) })
+            });
+            if (res.ok) {
+                alert('Rol guardado');
+                showSettingsTab('roles');
+            }
+        }
+
+async function deleteChannel(channelId) {
             if (!confirm('¿Eliminar este canal?')) return;
             const res = await fetch(`/api/channels/${channelId}`, {
                 method: 'DELETE',
@@ -947,7 +1024,29 @@
             });
             if (res.ok) {
                 showSettingsTab('channels');
-                loadChannels(currentServer.id);
+            }
+        }
+
+        async function toggleMemberRole(memberId, roleId) {
+            const res = await fetch(`/api/servers/${currentServer.id}/members/${memberId}/roles/${roleId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                showSettingsTab('members');
+            }
+        }
+
+        async function saveChannelRole(channelId) {
+            const roleId = document.getElementById(`channelRole_${channelId}`).value;
+            const res = await fetch(`/api/channels/${channelId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ required_role_id: roleId ? parseInt(roleId) : null })
+            });
+            if (res.ok) {
+                alert('Canal actualizado');
+                showSettingsTab('channels');
             }
         }
 
@@ -956,7 +1055,7 @@
                 alert('Selecciona un servidor primero');
                 return;
             }
-            const inviteUrl = `${window.location.origin}/invite/${currentServer.id}/${currentServer.invite_code}`;
+            const inviteUrl = currentServer.invite_code;
             navigator.clipboard.writeText(inviteUrl);
             alert('Enlace de invitación copiado al portapapeles');
             document.getElementById('serverOptionsMenu').classList.remove('show');
@@ -1062,7 +1161,14 @@
                 const data = JSON.parse(event.data);
                 console.log('Received:', data.type, 'from', data.from_username || data.from_user_id);
                 
-                if (data.type === 'joined' || data.type === 'user_joined') {
+                if (data.type === 'error') {
+                    console.log('Voice error:', data.message);
+                    ws.close();
+                    ws = null;
+                    document.getElementById('voiceOverlay').classList.add('hidden');
+                    alert(data.message);
+                    return;
+                } else if (data.type === 'joined' || data.type === 'user_joined') {
                     const wasEmpty = voiceUsers.length === 0;
                     voiceUsers = data.users || [];
                     console.log('Users in room:', voiceUsers);

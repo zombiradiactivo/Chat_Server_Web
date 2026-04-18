@@ -24,7 +24,7 @@ async def create_invitation(invite_data: InvitationCreate, server_id: int, curre
     if not member:
         raise HTTPException(status_code=403, detail="Not a member of this server")
     
-    code = secrets.token_urlsafe(12)
+    code = secrets.token_hex(4)
     expires = invite_data.expires_at if invite_data.expires_at else datetime.utcnow() + timedelta(days=7)
     
     invitation = Invitation(
@@ -77,6 +77,14 @@ async def join_with_invitation(code: str, current_user: User = Depends(get_curre
     
     member = ServerMember(user_id=current_user.id, server_id=invitation.server_id)
     db.add(member)
+    db.commit()
+    db.refresh(member)
+    
+    default_role = db.query(Role).filter(Role.server_id == invitation.server_id, Role.position == 0).first()
+    if default_role:
+        user_role = UserRole(member_id=member.id, role_id=default_role.id)
+        db.add(user_role)
+    
     invitation.uses += 1
     db.commit()
     

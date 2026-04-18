@@ -31,7 +31,7 @@ pip install -r requirements.txt
 # Windows
 start.bat
 
-# Linux/Mac
+# Windows/Linux/Mac
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 

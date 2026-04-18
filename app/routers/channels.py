@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import os
+import json
 import aiofiles
 from app.database import get_db
 from app.database import User, Server, ServerMember, Channel, ChannelType, Message, Attachment, Role, UserRole
@@ -16,8 +17,27 @@ from app.config import settings
 router = APIRouter(prefix="/channels", tags=["channels"])
 
 
+def check_permissions(member: ServerMember, permission: str, db: Session) -> bool:
+    user_roles = db.query(UserRole).filter(UserRole.member_id == member.id).all()
+    if not user_roles:
+        return True
+    
+    for ur in user_roles:
+        role = db.query(Role).filter(Role.id == ur.role_id).first()
+        if role:
+            perms = json.loads(role.permissions)
+            if perms.get(permission, False):
+                return True
+    return False
+
+
 def check_channel_access(channel: Channel, user: User, db: Session) -> bool:
+    import json
     if channel.server_id:
+        server = db.query(Server).filter(Server.id == channel.server_id).first()
+        if server.owner_id == user.id:
+            return True
+        
         member = db.query(ServerMember).filter(
             ServerMember.user_id == user.id,
             ServerMember.server_id == channel.server_id
@@ -28,7 +48,16 @@ def check_channel_access(channel: Channel, user: User, db: Session) -> bool:
             user_roles = db.query(UserRole).filter(UserRole.member_id == member.id).all()
             role_ids = [ur.role_id for ur in user_roles]
             if channel.required_role_id not in role_ids:
-                return False
+                user_has_perm = False
+                for ur in user_roles:
+                    role = db.query(Role).filter(Role.id == ur.role_id).first()
+                    if role:
+                        perms = json.loads(role.permissions)
+                        if perms.get('can_manage_channels', False):
+                            user_has_perm = True
+                            break
+                if not user_has_perm:
+                    return False
     elif channel.owner_id != user.id:
         return False
     return True
@@ -46,6 +75,9 @@ async def create_channel(channel_data: ChannelCreate, current_user: User = Depen
         ).first()
         if not member:
             raise HTTPException(status_code=403, detail="Not a member of this server")
+        
+        if not check_permissions(member, "can_create_channel", db):
+            raise HTTPException(status_code=403, detail="No tienes permiso para crear canales")
     
     channel = Channel(
         name=channel_data.name,

@@ -82,7 +82,7 @@ class Role(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     color = Column(String(7), default="#000000")
-    permissions = Column(Text, default="{}")
+    permissions = Column(Text, default='{"can_create_channel": true, "can_manage_channels": false, "can_manage_roles": false, "can_invite": true, "can_kick": false}')
     server_id = Column(Integer, ForeignKey("servers.id"), nullable=False)
     position = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)

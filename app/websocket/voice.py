@@ -270,7 +270,8 @@ def get_chat_manager():
 
 async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id: int, db):
     from app.database import SessionLocal
-    from app.database import Channel, ServerMember, User
+    from app.database import Channel, ServerMember, User, Role, UserRole, Server
+    import json
     
     await websocket.accept()
     
@@ -288,18 +289,45 @@ async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id:
             await websocket.send_json({"type": "error", "message": "Invalid channel"})
             return
         
-        member = db.query(ServerMember).filter(
-            ServerMember.user_id == user_id,
-            ServerMember.server_id == channel.server_id
-        ).first()
-        if not member:
-            await websocket.send_json({"type": "error", "message": "Not a member"})
-            return
+        server = db.query(Server).filter(Server.id == channel.server_id).first()
+        is_owner = server.owner_id == user_id if server else False
         
-        if channel.server_id not in voice_manager.voice_rooms:
-            voice_manager.voice_rooms[channel.server_id] = set()
+        if not is_owner:
+            member = db.query(ServerMember).filter(
+                ServerMember.user_id == user_id,
+                ServerMember.server_id == channel.server_id
+            ).first()
+            if not member:
+                await websocket.send_json({"type": "error", "message": "Not a member"})
+                return
+            
+            if channel.required_role_id:
+                user_roles = db.query(UserRole).filter(UserRole.member_id == member.id).all()
+                user_role_ids = [ur.role_id for ur in user_roles]
+                
+                user_has_perm = False
+                for ur in user_roles:
+                    role = db.query(Role).filter(Role.id == ur.role_id).first()
+                    if role:
+                        perms = json.loads(role.permissions)
+                        if perms.get('can_manage_channels', False):
+                            user_has_perm = True
+                            break
+                
+                if channel.required_role_id not in user_role_ids and not user_has_perm:
+                    await websocket.send_json({"type": "error", "message": "No tienes el rol requerido para este canal"})
+                    return
         
-        voice_manager.voice_rooms[channel.server_id].add(user_id)
+        user_channel_id = channel_id
+        
+        if not hasattr(voice_manager, 'user_channels'):
+            voice_manager.user_channels = {}
+        voice_manager.user_channels[user_id] = user_channel_id
+        
+        if user_channel_id not in voice_manager.voice_rooms:
+            voice_manager.voice_rooms[user_channel_id] = set()
+        
+        voice_manager.voice_rooms[user_channel_id].add(user_id)
         voice_manager.voice_connections[user_id] = websocket
         
         if not hasattr(voice_manager, 'voice_usernames'):
@@ -310,7 +338,7 @@ async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id:
         voice_manager.voice_usernames[user_id] = username
         voice_manager.username_to_id[username] = user_id
         
-        current_users = list(voice_manager.voice_usernames.get(u) for u in voice_manager.voice_rooms.get(channel.server_id, []) if u in voice_manager.voice_usernames)
+        current_users = list(voice_manager.voice_usernames.get(u) for u in voice_manager.voice_rooms.get(user_channel_id, []) if u in voice_manager.voice_usernames)
         
         print(f"User {username} (id: {user_id}) joined channel {channel_id}, users: {current_users}")
         
@@ -325,7 +353,7 @@ async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id:
             "user_id": user_id,
             "username": username,
             "users": current_users
-        }, channel.server_id)
+        }, channel_id)
         
         try:
             while True:
@@ -356,8 +384,8 @@ async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id:
                     
                     if target_user:
                         await voice_manager.send_voice_message({
-                            "type": "ice_candidate",
-                            "candidate": data.get("candidate"),
+                            "type": msg_type,
+                            "sdp": data.get("sdp"),
                             "from_user_id": user_id,
                             "from_username": username
                         }, target_user)
@@ -368,16 +396,33 @@ async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id:
                     await voice_manager.broadcast({
                         "type": "media",
                         "user_id": user_id,
-                        "data": data.get("data"),
-                        "media_type": data.get("media_type")
-                    }, channel.server_id, exclude_user=user_id)
+                        "from_username": username,
+                        "enabled": data.get("enabled")
+                    }, user_channel_id)
                 
                 elif msg_type == "mute":
                     await voice_manager.broadcast({
-                        "type": "user_muted",
+                        "type": "mute",
                         "user_id": user_id,
+                        "from_username": username,
                         "muted": data.get("muted")
-                    }, channel.server_id)
+                    }, user_channel_id)
+                
+                elif msg_type == "camera":
+                    await voice_manager.broadcast({
+                        "type": "camera",
+                        "user_id": user_id,
+                        "from_username": username,
+                        "enabled": data.get("enabled")
+                    }, user_channel_id)
+                
+                elif msg_type == "screenshare":
+                    await voice_manager.broadcast({
+                        "type": "user_screenshare",
+                        "user_id": user_id,
+                        "from_username": username,
+                        "enabled": data.get("enabled")
+                    }, user_channel_id)
                 
                 elif msg_type == "camera":
                     await voice_manager.broadcast({
@@ -400,24 +445,28 @@ async def handle_voice_websocket(websocket: WebSocket, user_id: int, channel_id:
         except WebSocketDisconnect:
             pass
         finally:
-            if channel.server_id in voice_manager.voice_rooms:
-                voice_manager.voice_rooms[channel.server_id].discard(user_id)
-                if user_id in voice_manager.voice_connections:
-                    del voice_manager.voice_connections[user_id]
-                if hasattr(voice_manager, 'voice_usernames'):
-                    voice_manager.voice_usernames.pop(user_id, None)
-                if hasattr(voice_manager, 'username_to_id') and username in voice_manager.username_to_id:
-                    del voice_manager.username_to_id[username]
+            if user_channel_id in voice_manager.voice_rooms:
+                voice_manager.voice_rooms[user_channel_id].discard(user_id)
+                if not voice_manager.voice_rooms[user_channel_id]:
+                    del voice_manager.voice_rooms[user_channel_id]
+            if user_id in voice_manager.voice_connections:
+                del voice_manager.voice_connections[user_id]
+            if hasattr(voice_manager, 'user_channels'):
+                voice_manager.user_channels.pop(user_id, None)
+            if hasattr(voice_manager, 'voice_usernames'):
+                voice_manager.voice_usernames.pop(user_id, None)
+            if hasattr(voice_manager, 'username_to_id') and username in voice_manager.username_to_id:
+                del voice_manager.username_to_id[username]
                 
                 current_users = []
                 if hasattr(voice_manager, 'voice_usernames'):
-                    current_users = list(voice_manager.voice_usernames.get(u) for u in voice_manager.voice_rooms.get(channel.server_id, []) if u in voice_manager.voice_usernames)
+                    current_users = list(voice_manager.voice_usernames.get(u) for u in voice_manager.voice_rooms.get(user_channel_id, []) if u in voice_manager.voice_usernames)
                 
                 await voice_manager.broadcast({
                     "type": "user_left",
                     "user_id": user_id,
                     "users": current_users
-                }, channel.server_id)
+                }, user_channel_id)
     finally:
         db.close()
 
