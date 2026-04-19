@@ -24,6 +24,7 @@ class UserUpdate(BaseModel):
     display_name: Optional[str] = None
     avatar_url: Optional[str] = None
     status: Optional[str] = None
+    description: Optional[str] = None
 
 
 class UserResponse(UserBase):

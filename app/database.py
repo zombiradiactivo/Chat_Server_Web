@@ -50,7 +50,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     display_name = Column(String(100), nullable=True)
-    status = Column(String(50), default="offline")
+    description = Column(Text, nullable=True)
+    status = Column(String(50), default="online")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

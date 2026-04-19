@@ -71,6 +71,17 @@
         .login-tab.active { background: #e94560; }
         
         .voice-overlay { position: fixed; bottom: 0; right: 0; width: 400px; background: #16213e; border-radius: 16px 16px 0 0; padding: 16px; z-index: 50; }
+        
+        .user-overlay { position: fixed; bottom: 80px; left: 76px; background: #16213e; padding: 8px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px; z-index: 40; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: left 0.2s, bottom 0.2s; }
+        .user-overlay.sidebar-visible { bottom: 16px; left: 76px; }
+        .user-overlay-avatar { width: 32px; height: 32px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .user-overlay-info { display: flex; flex-direction: column; }
+        .user-overlay-name { font-weight: bold; font-size: 14px; }
+        .user-overlay-status { font-size: 11px; color: #8e9aaf; }
+        @media (max-width: 700px) { 
+            .user-overlay { left: 76px; bottom: 80px; } 
+            .user-overlay.sidebar-visible { left: 76; bottom: 16px; }
+        }
         .voice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .voice-users { display: flex; flex-wrap: wrap; gap: 8px; }
         .voice-user { width: 48px; height: 48px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; }
@@ -265,6 +276,15 @@
         </div>
     </div>
     
+    <div class="user-overlay hidden" id="userOverlay">
+        <div class="user-overlay-avatar" id="userOverlayAvatar" style="cursor: pointer;" onclick="showProfileSettings()"></div>
+        <div class="user-overlay-info" style="cursor: pointer;" onclick="showProfileSettings()">
+            <div class="user-overlay-name" id="userOverlayName"></div>
+            <div class="user-overlay-status" id="userOverlayStatus">En línea</div>
+        </div>
+        <button onclick="showProfileSettings()" style="background: none; border: none; color: #8e9aaf; cursor: pointer; padding: 4px; font-size: 16px;" title="Configuración">⚙️</button>
+    </div>
+    
     <div id="voiceSettingsPanel" style="display: none; position: fixed; bottom: 80px; right: 20px; background: #16213e; border-radius: 8px; padding: 16px; z-index: 60; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
         <h4 style="margin-bottom: 12px; color: #eee;">Configuración de Voz</h4>
         <div style="margin-bottom: 12px;">
@@ -299,6 +319,16 @@
                 <button class="settings-tab" onclick="showSettingsTab('channels')">Canales</button>
             </div>
             <div class="settings-content" id="settingsContent"></div>
+        </div>
+    </div>
+    
+    <div class="settings-modal" id="profileModal">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2>Configuración de Perfil</h2>
+                <button class="settings-close" onclick="closeProfileSettings()">✕</button>
+            </div>
+            <div class="settings-content" id="profileContent"></div>
         </div>
     </div>
     
@@ -409,10 +439,24 @@
             if (res.ok) {
                 currentUser = await res.json();
                 document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('userOverlay').classList.remove('hidden');
+                updateUserOverlay();
                 loadServers();
             } else {
                 localStorage.removeItem('token');
             }
+        }
+
+        function updateUserOverlay() {
+            const avatarEl = document.getElementById('userOverlayAvatar');
+            if (currentUser.avatar_url) {
+                avatarEl.innerHTML = `<img src="${currentUser.avatar_url}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            } else {
+                avatarEl.innerHTML = currentUser.username[0].toUpperCase();
+            }
+            document.getElementById('userOverlayName').textContent = currentUser.display_name || currentUser.username;
+            const statusLabels = { online: 'En línea', offline: 'Desconectado', busy: 'Ocupado', away: 'Ausente' };
+            document.getElementById('userOverlayStatus').textContent = statusLabels[currentUser.status] || 'En línea';
         }
 
         function showLoginTab(tab) {
@@ -484,6 +528,7 @@
             token = null;
             currentUser = null;
             document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('userOverlay').classList.add('hidden');
             document.getElementById('serverListSidebar').innerHTML = '';
             document.getElementById('channelList').innerHTML = '';
             document.getElementById('voiceOverlay').classList.add('hidden');
@@ -492,11 +537,13 @@
 
         async function selectServer(serverId, el) {
             const sidebar = document.getElementById('serverSidebar');
+            const userOverlay = document.getElementById('userOverlay');
 
             // Si el mismo server está seleccionado, alternar visibilidad del sidebar
             if (currentServer && currentServer.id === serverId) {
                 if (!sidebar.classList.contains('hidden')) {
                     sidebar.classList.add('hidden');
+                    userOverlay.classList.remove('sidebar-visible');
                     if (el) el.classList.remove('active');
                     document.getElementById('channelList').innerHTML = '';
                     return;
@@ -505,6 +552,7 @@
 
             // Mostrar sidebar y marcar icono activo
             sidebar.classList.remove('hidden');
+            userOverlay.classList.add('sidebar-visible');
             document.querySelectorAll('.server-icon-small').forEach(e => e.classList.remove('active'));
             if (el) el.classList.add('active');
 
@@ -806,6 +854,118 @@
 
         function closeSettings() {
             document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        function showProfileSettings() {
+            const modal = document.getElementById('profileModal');
+            const content = document.getElementById('profileContent');
+            const statusOptions = ['online', 'offline', 'busy', 'away'];
+            const statusLabels = { online: 'En línea', offline: 'Desconectado', busy: 'Ocupado', away: 'Ausente' };
+            const currentStatus = currentUser?.status || 'online';
+            const currentDesc = currentUser?.description || '';
+            
+            content.innerHTML = `
+                <div class="settings-section">
+                    <h3>Información del Perfil</h3>
+                    <label class="settings-label">Nombre Visible</label>
+                    <input type="text" class="settings-input" id="profileDisplayName" value="${currentUser?.display_name || ''}" placeholder="Nombre que otros verán">
+                    
+                    <label class="settings-label">Descripción</label>
+                    <textarea class="settings-input" id="profileDescription" rows="3" placeholder="Cuéntanos sobre ti">${currentDesc}</textarea>
+                    
+                    <label class="settings-label">Estado</label>
+                    <select class="settings-input" id="profileStatus">
+                        ${statusOptions.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${statusLabels[s]}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Foto de Perfil</h3>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+                        <div id="profileAvatarPreview" style="width: 64px; height: 64px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            ${currentUser?.avatar_url ? `<img src="${currentUser.avatar_url}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 24px; font-weight: bold;">${currentUser?.username?.[0]?.toUpperCase() || '?'}</span>`}
+                        </div>
+                        <button onclick="document.getElementById('profileAvatarInput').click()" style="padding: 8px 16px; background: #0f3460; border: none; border-radius: 6px; color: #eee; cursor: pointer;">Subir imagen</button>
+                        <input type="file" id="profileAvatarInput" accept="image/*" style="display: none;" onchange="previewProfileAvatar(event)">
+                    </div>
+                    
+                    <label class="settings-label">O usa una URL</label>
+                    <input type="text" class="settings-input" id="profileAvatarUrl" value="${currentUser?.avatar_url || ''}" placeholder="https://..." oninput="updateProfileAvatarFromUrl(this.value)">
+                </div>
+                
+                <button onclick="saveProfileSettings()" style="width: 100%; padding: 12px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 16px; margin-top: 16px;">Guardar Cambios</button>
+            `;
+            
+            modal.classList.add('show');
+        }
+
+        function closeProfileSettings() {
+            document.getElementById('profileModal').classList.remove('show');
+        }
+
+        function previewProfileAvatar(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('profileAvatarPreview').innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                document.getElementById('profileAvatarUrl').value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateProfileAvatarFromUrl(url) {
+            if (!url) {
+                document.getElementById('profileAvatarPreview').innerHTML = `<span style="font-size: 24px; font-weight: bold;">${currentUser?.username?.[0]?.toUpperCase() || '?'}</span>`;
+                return;
+            }
+            document.getElementById('profileAvatarPreview').innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<span style=font-size:24px;font-weight:bold>${currentUser?.username?.[0]?.toUpperCase()}</span>';">`;
+        }
+
+        async function saveProfileSettings() {
+            const displayName = document.getElementById('profileDisplayName').value;
+            const description = document.getElementById('profileDescription').value;
+            const status = document.getElementById('profileStatus').value;
+            const avatarUrlInput = document.getElementById('profileAvatarUrl');
+            const fileInput = document.getElementById('profileAvatarInput');
+            
+            let avatarUrl = avatarUrlInput.value;
+            
+            if (fileInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                
+                const uploadRes = await fetch('/api/auth/avatar', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                
+                if (uploadRes.ok) {
+                    const data = await uploadRes.json();
+                    avatarUrl = data.avatar_url;
+                }
+            }
+            
+            const res = await fetch('/api/auth/me', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    display_name: displayName,
+                    description: description,
+                    status: status,
+                    avatar_url: avatarUrl || null
+                })
+            });
+            
+            if (res.ok) {
+                currentUser = await res.json();
+                updateUserOverlay();
+                closeProfileSettings();
+            } else {
+                alert('Error al guardar perfil');
+            }
         }
 
         async function showSettingsTab(tab) {

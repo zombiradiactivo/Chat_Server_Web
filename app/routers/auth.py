@@ -55,6 +55,8 @@ async def update_me(user_update: UserUpdate, current_user: User = Depends(get_cu
         current_user.avatar_url = user_update.avatar_url
     if user_update.status is not None:
         current_user.status = user_update.status
+    if user_update.description is not None:
+        current_user.description = user_update.description
     db.commit()
     db.refresh(current_user)
     return current_user
