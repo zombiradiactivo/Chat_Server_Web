@@ -203,7 +203,8 @@ async def get_server_members(server_id: int, current_user: User = Depends(get_cu
                 "id": m.user.id,
                 "username": m.user.username,
                 "display_name": m.user.display_name,
-                "avatar_url": m.user.avatar_url
+                "avatar_url": m.user.avatar_url,
+                "status": m.user.status
             },
             "roles": roles_list
         })

@@ -61,6 +61,21 @@ class User(Base):
     direct_messages = relationship("DirectMessage", foreign_keys="DirectMessage.user1_id", back_populates="user1")
     direct_messages2 = relationship("DirectMessage", foreign_keys="DirectMessage.user2_id", back_populates="user2")
     voice_sessions = relationship("VoiceSession", back_populates="user")
+    friend_requests_sent = relationship("FriendRequest", foreign_keys="FriendRequest.from_user_id", back_populates="from_user")
+    friend_requests_received = relationship("FriendRequest", foreign_keys="FriendRequest.to_user_id", back_populates="to_user")
+
+
+class FriendRequest(Base):
+    __tablename__ = "friend_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    from_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    to_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), default="pending")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    from_user = relationship("User", foreign_keys=[from_user_id], back_populates="friend_requests_sent")
+    to_user = relationship("User", foreign_keys=[to_user_id], back_populates="friend_requests_received")
 
 
 class ServerMember(Base):

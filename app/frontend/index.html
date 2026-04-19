@@ -43,8 +43,30 @@
         .channel-item .icon { margin-right: 8px; }
         
         .chat-area { flex: 1; display: flex; flex-direction: column; background: #1a1a2e; min-height: 0; }
-        .chat-header { padding: 16px; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
+        .chat-header { padding: 16px; border-bottom: 1px solid #0f3460; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
         .chat-header h2 { font-size: 18px; }
+        .chat-header > div { display: flex; align-items: center; gap: 12px; }
+        
+        .members-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; max-height: 500px; background: #16213e; border-radius: 12px; z-index: 100; display: none; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .members-modal.show { display: flex; }
+        .members-header { padding: 16px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
+        .members-header h3 { margin: 0; }
+        .members-tabs { display: flex; border-bottom: 1px solid #0f3460; }
+        .members-tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #8e9aaf; background: none; border: none; }
+        .members-tab:hover { background: #0f3460; }
+        .members-tab.active { color: #eee; background: #0f3460; }
+        .members-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .member-row { display: flex; align-items: center; padding: 10px; border-radius: 6px; gap: 12px; }
+        .member-row:hover { background: #0f3460; }
+        .member-row-avatar { width: 36px; height: 36px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .member-row-info { flex: 1; }
+        .member-row-name { font-weight: bold; font-size: 14px; }
+        .member-row-status { font-size: 12px; color: #8e9aaf; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .status-dot.online { background: #3ba55c; }
+        .status-dot.offline { background: #747f8d; }
+        .status-dot.busy { background: #ed4245; }
+        .status-dot.away { background: #faa61a; }
         
         .messages { flex: 1; padding: 16px; overflow-y: auto; min-height: 0; }
         .message { display: flex; margin-bottom: 16px; }
@@ -210,6 +232,10 @@
             <div class="chat-area">
                 <div class="chat-header">
                     <h2 id="currentChannelName">Bienvenido</h2>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span id="onlineCount" style="color: #8e9aaf; font-size: 14px;">0 en línea</span>
+                        <button onclick="showServerMembers()" style="background: #0f3460; border: none; color: #8e9aaf; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">👥 Miembros</button>
+                    </div>
                 </div>
                 <!-- Voice grid moved into chat area so overlay only shows local preview -->
                 <div class="voice-grid" id="voiceGrid"></div>
@@ -332,6 +358,18 @@
         </div>
     </div>
     
+    <div class="members-modal" id="membersModal">
+        <div class="members-header">
+            <h3>Miembros del Servidor</h3>
+            <button onclick="closeMembersModal()" style="background: none; border: none; color: #8e9aaf; cursor: pointer; font-size: 20px;">✕</button>
+        </div>
+        <div class="members-tabs">
+            <button class="members-tab active" onclick="showMembersTab('online')">En línea</button>
+            <button class="members-tab" onclick="showMembersTab('all')">Todos</button>
+        </div>
+        <div class="members-list" id="membersList"></div>
+    </div>
+    
     <div class="terminal-modal" id="terminalModal">
         <div class="terminal-window">
             <div class="terminal-header">
@@ -347,13 +385,281 @@
     </div>
 
     <script>
+        console.log('Script loaded');
+        
+        // Make functions global for onclick handlers
+        window.showServerMembers = async function() {
+            if (!currentServer) return;
+            const res = await fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
+            serverMembersCache = await res.json();
+            document.getElementById('membersModal').classList.add('show');
+            showMembersTab('online');
+        };
+        
+        window.showMembersTab = function(tab) {
+            currentMembersTab = tab;
+            document.querySelectorAll('.members-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.members-tab:nth-child(' + (tab === 'online' ? 1 : 2) + ')').classList.add('active');
+            renderMembersList();
+        };
+        
+        window.renderMembersList = function() {
+            const list = document.getElementById('membersList');
+            const members = currentMembersTab === 'online' 
+                ? serverMembersCache.filter(m => m.user.status === 'online')
+                : serverMembersCache;
+            
+            if (members.length === 0) {
+                list.innerHTML = '<div style="text-align: center; color: #8e9aaf; padding: 20px;">No hay miembros</div>';
+                return;
+            }
+            
+            list.innerHTML = members.map(m => {
+                const statusClass = m.user.status || 'offline';
+                const statusText = { online: 'En línea', offline: 'Desconectado', busy: 'Ocupado', away: 'Ausente' }[statusClass] || 'Desconectado';
+                const avatarContent = m.user.avatar_url 
+                    ? '<img src="' + m.user.avatar_url + '" style="width: 100%; height: 100%; object-fit: cover;">'
+                    : m.user.username[0].toUpperCase();
+                return '<div class="member-row">' +
+                    '<div class="member-row-avatar">' + avatarContent + '</div>' +
+                    '<div class="member-row-info">' +
+                        '<div class="member-row-name">' + (m.user.display_name || m.user.username) + '</div>' +
+                        '<div class="member-row-status"><span class="status-dot ' + statusClass + '"></span>' + statusText + '</div>' +
+                    '</div>' +
+                    '<button onclick="sendFriendRequest(' + m.user.id + ')" style="background: #5865F2; border: none; color: white; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Añadir</button>' +
+                '</div>';
+            }).join('');
+        };
+        
+        window.updateOnlineCount = function() {
+            if (!currentServer) return;
+            fetch('/api/servers/' + currentServer.id + '/members', { headers: { 'Authorization': 'Bearer ' + token }})
+                .then(r => r.json())
+                .then(members => {
+                    const online = members.filter(m => m.user.status === 'online').length;
+                    document.getElementById('onlineCount').textContent = online + ' en línea';
+                });
+        };
+        
+        window.closeMembersModal = function() {
+            document.getElementById('membersModal').classList.remove('show');
+        };
+        
+        window.sendFriendRequest = async function(userId) {
+            const res = await fetch('/api/friends', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ to_user_id: userId })
+            });
+            if (res.ok) {
+                alert('Solicitud de amistad enviada');
+                closeMembersModal();
+            } else {
+                const err = await res.json();
+                alert(err.detail || 'Error al enviar solicitud');
+            }
+        };
+        
+        window.showHome = async function() {
+            document.getElementById('currentChannelName').textContent = 'Inicio';
+            document.getElementById('messageInputArea').style.display = 'none';
+            document.getElementById('uploadProgress').style.display = 'none';
+            document.getElementById('voiceGrid').style.display = 'none';
+            
+            // Load friends
+            const friendsRes = await fetch('/api/friends', { headers: { 'Authorization': 'Bearer ' + token }});
+            const friends = await friendsRes.json();
+            
+            // Load pending requests
+            const requestsRes = await fetch('/api/friends/requests', { headers: { 'Authorization': 'Bearer ' + token }});
+            const requests = await requestsRes.json();
+            
+            const messagesEl = document.getElementById('messages');
+            
+            let html = '<div style="padding: 20px;">';
+            html += '<h2 style="margin-bottom: 20px;">Amigos</h2>';
+            
+            // Friend requests section
+            if (requests.length > 0) {
+                html += '<h3 style="color: #8e9aaf; margin: 20px 0 10px;">Solicitudes</h3>';
+                for (const req of requests) {
+                    html += '<div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: #16213e; border-radius: 8px; margin-bottom: 8px;">';
+                    html += '<div style="width: 40px; height: 40px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center;">' + (req.from_user?.username?.[0]?.toUpperCase() || '?') + '</div>';
+                    html += '<div style="flex: 1;"><div style="font-weight: bold;">' + (req.from_user?.display_name || req.from_user?.username || 'Usuario') + '</div></div>';
+                    html += '<button onclick="acceptFriendRequest(' + req.id + ')" style="background: #3ba55c; border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Aceptar</button>';
+                    html += '<button onclick="rejectFriendRequest(' + req.id + ')" style="background: #ed4245; border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-left: 8px;">Rechazar</button>';
+                    html += '</div>';
+                }
+            }
+            
+            // Friends section
+            html += '<h3 style="color: #8e9aaf; margin: 20px 0 10px;">Amigos (' + friends.length + ')</h3>';
+            if (friends.length === 0) {
+                html += '<p style="color: #8e9aaf;">No tienes amigos todavía. ¡Añade desde los miembros de un servidor!</p>';
+            } else {
+                for (const friend of friends) {
+                    const statusClass = friend.status || 'offline';
+                    const statusText = { online: 'En línea', offline: 'Desconectado', busy: 'Ocupado', away: 'Ausente' }[statusClass] || 'Desconectado';
+                    const avatarContent = friend.avatar_url 
+                        ? '<img src="' + friend.avatar_url + '" style="width: 100%; height: 100%; object-fit: cover;">'
+                        : friend.username[0].toUpperCase();
+                    html += '<div onclick="openDM(' + friend.id + ')" style="display: flex; align-items: center; gap: 12px; padding: 10px; background: #16213e; border-radius: 8px; margin-bottom: 8px; cursor: pointer;">';
+                    html += '<div style="position: relative;"><div style="width: 40px; height: 40px; border-radius: 50%; background: #0f3460; display: flex; align-items: center; justify-content: center; overflow: hidden;">' + avatarContent + '</div><div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: ' + (statusClass === 'online' ? '#3ba55c' : statusClass === 'busy' ? '#ed4245' : statusClass === 'away' ? '#faa61a' : '#747f8d') + '; border: 2px solid #16213e;"></div></div>';
+                    html += '<div style="flex: 1;"><div style="font-weight: bold;">' + (friend.display_name || friend.username) + '</div><div style="font-size: 12px; color: #8e9aaf;">' + statusText + '</div></div>';
+                    html += '</div>';
+                }
+            }
+            
+            html += '</div>';
+            messagesEl.innerHTML = html;
+        };
+        
+        window.acceptFriendRequest = async function(requestId) {
+            const res = await fetch('/api/friends/' + requestId + '/accept', {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+                showHome();
+            }
+        };
+        
+        window.rejectFriendRequest = async function(requestId) {
+            const res = await fetch('/api/friends/' + requestId + '/reject', {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+                showHome();
+            }
+        };
+        
+        window.openDM = async function(userId, userName) {
+            currentChannel = { id: 'dm_' + userId, name: userName, type: 'dm', userId: userId };
+            document.getElementById('currentChannelName').textContent = userName;
+            document.getElementById('messageInputArea').style.display = 'flex';
+            document.getElementById('uploadProgress').style.display = 'none';
+            document.getElementById('voiceGrid').style.display = 'none';
+            
+            // Connect to DM WebSocket - use consistent room key (sorted IDs)
+            const myId = currentUser.id;
+            const roomIds = [myId, userId].sort((a, b) => a - b);
+            const roomKey = 'dm_' + roomIds[0] + '_' + roomIds[1];
+            if (dmWs) { dmWs.close(); }
+            dmWs = new WebSocket(getWsUrl('/ws/chat/' + roomKey + '?token=' + token));
+            dmWs.onopen = () => console.log('DM WebSocket connected to ' + roomKey);
+            dmWs.onmessage = (event) => {
+                console.log('DM WebSocket message:', event.data);
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_dm') {
+                    console.log('New DM received:', data);
+                    const msg = data.message;
+                    const fromUser = data.from_user;
+                    // Only show if it's from the other user (not my own messages)
+                    if (fromUser.id !== currentUser.id && currentChannel && currentChannel.userId == userId) {
+                        addDMToList(msg, fromUser);
+                    }
+                }
+            };
+            dmWs.onerror = (err) => console.error('DM WebSocket error:', err);
+            dmWs.onclose = () => console.log('DM WebSocket closed');
+            
+            const res = await fetch('/api/direct-messages/' + userId, { headers: { 'Authorization': 'Bearer ' + token }});
+            const messages = await res.json();
+            
+            const messagesEl = document.getElementById('messages');
+            if (!Array.isArray(messages)) {
+                messagesEl.innerHTML = '<div style="padding: 20px; color: #8e9aaf;">No hay mensajes</div>';
+                return;
+            }
+            
+            messagesEl.innerHTML = messages.reverse().map(m => createDMHTML(m, m.user1_id === currentUser.id ? currentUser : { username: userName, display_name: userName })).join('');
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        };
+        
+        function createDMHTML(m, author) {
+            const time = m.created_at ? new Date(m.created_at).toLocaleString() : '';
+            
+            let attachments = '';
+            if (m.attachments && m.attachments.length) {
+                attachments = '<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">';
+                for (const a of m.attachments) {
+                    if (a.file_type && a.file_type.startsWith('image/')) {
+                        attachments += '<img src="' + a.file_path + '" style="max-width: 300px; border-radius: 8px; cursor: pointer;" onclick="window.open(this.src, \'_blank\')">';
+                    } else {
+                        attachments += '<a href="' + a.file_path + '" target="_blank" style="color: #5865F2; text-decoration: none; padding: 4px 8px; background: #0f3460; border-radius: 4px; display: inline-block; margin: 2px;">' + (a.filename || 'Archivo') + '</a>';
+                    }
+                }
+                attachments += '</div>';
+            }
+            
+            return '<div style="display: flex; flex-direction: column; margin: 10px 0;">' +
+                '<div style="display: flex; align-items: baseline; gap: 8px;">' +
+                    '<span style="font-weight: bold; color: #e94560;">' + (author.display_name || author.username) + '</span>' +
+                    '<span style="font-size: 12px; color: #8e9aaf;">' + time + '</span>' +
+                '</div>' +
+                '<div style="margin-left: 0;">' + (m.content || '') + '</div>' +
+                attachments +
+            '</div>';
+        }
+        
+        function addDMToList(m, fromUser) {
+            const messagesEl = document.getElementById('messages');
+            messagesEl.innerHTML += createDMHTML(m, fromUser);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+        
+        window.showInviteLink = function() {
+            if (!currentServer) {
+                alert('Selecciona un servidor primero');
+                return;
+            }
+            const inviteUrl = currentServer.invite_code;
+            navigator.clipboard.writeText(inviteUrl);
+            alert('Enlace de invitación copiado al portapapeles');
+            document.getElementById('serverOptionsMenu').classList.remove('show');
+        };
+        
+        window.showDMs = async function() {
+            const res = await fetch('/api/friends', { headers: { 'Authorization': 'Bearer ' + token }});
+            const friends = await res.json();
+            
+            const online = friends.filter(f => f.status === 'online');
+            const offline = friends.filter(f => f.status !== 'online');
+            
+            const sidebar = document.getElementById('serverSidebar');
+            sidebar.classList.remove('hidden');
+            document.getElementById('userOverlay').classList.add('sidebar-visible');
+            
+            document.getElementById('channelList').innerHTML = 
+                '<div class="channel-category">En Línea - ' + online.length + '</div>' +
+                online.map(f => 
+                    '<div class="channel-item" onclick="openDM(' + f.id + ', \'' + (f.display_name || f.username) + '\')">' +
+                        '<span class="status-dot online" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3ba55c; margin-right: 8px;"></span>' +
+                        (f.avatar_url ? '<img src="' + f.avatar_url + '" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 8px;">' : '<span style="margin-right: 8px;">' + f.username[0].toUpperCase() + '</span>') +
+                        (f.display_name || f.username) +
+                    '</div>'
+                ).join('') +
+                '<div class="channel-category">Desconectados - ' + offline.length + '</div>' +
+                offline.map(f => 
+                    '<div class="channel-item" onclick="openDM(' + f.id + ', \'' + (f.display_name || f.username) + '\')">' +
+                        '<span class="status-dot offline" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #747f8d; margin-right: 8px;"></span>' +
+                        (f.avatar_url ? '<img src="' + f.avatar_url + '" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 8px;">' : '<span style="margin-right: 8px;">' + f.username[0].toUpperCase() + '</span>') +
+                        (f.display_name || f.username) +
+                    '</div>'
+                ).join('');
+        };
+        
         let token = localStorage.getItem('token');
         let currentUser = null;
         let currentServer = null;
         let currentChannel = null;
         let ws = null;
         let chatWs = null;
+        let dmWs = null;
         let terminalWs = null;
+        let serverMembersCache = [];
+        let currentMembersTab = 'online';
 
         let mobileFacingMode = 'user';
         function isMobile() {
@@ -560,6 +866,7 @@
             currentServer = await res.json();
             document.getElementById('currentServerName').textContent = currentServer.name;
             loadChannels(serverId);
+            updateOnlineCount();
         }
 
         async function showJoinServer() {
@@ -754,18 +1061,37 @@
             progressBar.style.width = '0%';
             uploadPercent.textContent = '0%';
             
-            const messageRes = await fetch(`/api/channels/${currentChannel.id}/messages`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: JSON.stringify({ content: ' ', message_type: 'file' })
-            });
+            let message;
             
-            if (messageRes.ok) {
-                const message = await messageRes.json();
+            if (currentChannel.type === 'dm') {
+                // Create message for DM
+                const messageRes = await fetch('/api/direct-messages/', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token 
+                    },
+                    body: JSON.stringify({ content: ' ', message_type: 'file', recipient_id: currentChannel.userId })
+                });
+                if (messageRes.ok) {
+                    message = await messageRes.json();
+                }
+            } else {
+                const messageRes = await fetch('/api/channels/' + currentChannel.id + '/messages', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token 
+                    },
+                    body: JSON.stringify({ content: ' ', message_type: 'file' })
+                });
                 
+                if (messageRes.ok) {
+                    message = await messageRes.json();
+                }
+            }
+            
+            if (message) {
                 const fileFormData = new FormData();
                 fileFormData.append('file', file);
                 
@@ -781,7 +1107,11 @@
                 
                 xhr.addEventListener('load', () => {
                     uploadProgress.style.display = 'none';
-                    loadMessages(currentChannel.id);
+                    if (currentChannel.type === 'dm') {
+                        openDM(currentChannel.userId, currentChannel.name);
+                    } else {
+                        loadMessages(currentChannel.id);
+                    }
                 });
                 
                 xhr.addEventListener('error', () => {
@@ -789,8 +1119,15 @@
                     alert('Error al subir archivo');
                 });
                 
-                xhr.open('POST', `/api/channels/${currentChannel.id}/messages/${message.id}/attachments`);
-                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                let uploadUrl;
+                if (currentChannel.type === 'dm') {
+                    uploadUrl = '/api/direct-messages/' + message.id + '/attachments';
+                } else {
+                    uploadUrl = '/api/channels/' + currentChannel.id + '/messages/' + message.id + '/attachments';
+                }
+                
+                xhr.open('POST', uploadUrl);
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
                 xhr.send(fileFormData);
             }
             
@@ -802,13 +1139,22 @@
             const content = input.value;
             if (!content || !currentChannel) return;
             
-            await fetch(`/api/channels/${currentChannel.id}/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ content, message_type: 'text' })
-            });
+            if (currentChannel.type === 'dm') {
+                await fetch('/api/direct-messages/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ content: content, message_type: 'text', recipient_id: currentChannel.userId })
+                });
+                openDM(currentChannel.userId, currentChannel.name);
+            } else {
+                await fetch('/api/channels/' + currentChannel.id + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ content: content, message_type: 'text' })
+                });
+                loadMessages(currentChannel.id);
+            }
             input.value = '';
-            loadMessages(currentChannel.id);
         }
 
         function handleMessageKeypress(e) {
@@ -1105,8 +1451,69 @@
                             `;
                         }).join('')}
                     </div>
-                `;
+`;
+            updateOnlineCount();
+        }
+
+        function updateOnlineCount() {
+            if (!currentServer) return;
+            fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }})
+                .then(r => r.json())
+                .then(members => {
+                    const online = members.filter(m => m.user.status === 'online').length;
+                    document.getElementById('onlineCount').textContent = `${online} en línea`;
+                });
+        }
+
+        let serverMembersCache = [];
+        let currentMembersTab = 'online';
+
+        async function showServerMembers() {
+            if (!currentServer) return;
+            const res = await fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }});
+            serverMembersCache = await res.json();
+            document.getElementById('membersModal').classList.add('show');
+            showMembersTab('online');
+        }
+
+        function showMembersTab(tab) {
+            currentMembersTab = tab;
+            document.querySelectorAll('.members-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderMembersList();
+        }
+
+        function renderMembersList() {
+            const list = document.getElementById('membersList');
+            const members = currentMembersTab === 'online' 
+                ? serverMembersCache.filter(m => m.user.status === 'online')
+                : serverMembersCache;
+            
+            if (members.length === 0) {
+                list.innerHTML = `<div style="text-align: center; color: #8e9aaf; padding: 20px;">No hay miembros</div>`;
+                return;
             }
+            
+            list.innerHTML = members.map(m => {
+                const statusClass = m.user.status || 'offline';
+                const statusText = { online: 'En línea', offline: 'Desconectado', busy: 'Ocupado', away: 'Ausente' }[statusClass] || 'Desconectado';
+                const avatarContent = m.user.avatar_url 
+                    ? `<img src="${m.user.avatar_url}" style="width: 100%; height: 100%; object-fit: cover;">`
+                    : m.user.username[0].toUpperCase();
+                return `
+                    <div class="member-row">
+                        <div class="member-row-avatar">${avatarContent}</div>
+                        <div class="member-row-info">
+                            <div class="member-row-name">${m.user.display_name || m.user.username}</div>
+                            <div class="member-row-status"><span class="status-dot ${statusClass}"></span>${statusText}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function closeMembersModal() {
+            document.getElementById('membersModal').classList.remove('show');
         }
 
         async function saveServerSettings() {
@@ -2207,6 +2614,7 @@ async function loadCustomApps(channelId) {
 
         function handleTerminalKeypress(e) {
             if (e.key === 'Enter') sendTerminalCommand();
+        }
         }
     </script>
 </body>

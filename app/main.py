@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketDisconnect
-from app.routers import auth_router, servers_router, channels_router, direct_messages_router, invitations_router, custom_apps_router, media_router
+from app.routers import auth_router, servers_router, channels_router, direct_messages_router, invitations_router, custom_apps_router, media_router, friends_router
 from app.websocket import voice
 from app.config import settings
 import os
@@ -25,6 +25,7 @@ app.include_router(direct_messages_router.router, prefix="/api")
 app.include_router(invitations_router.router, prefix="/api")
 app.include_router(custom_apps_router.router, prefix="/api")
 app.include_router(media_router.router, prefix="/api")
+app.include_router(friends_router.router, prefix="/api")
 
 if os.path.exists(settings.MEDIA_DIR):
     app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
@@ -54,7 +55,7 @@ async def voice_websocket(websocket: WebSocket, channel_id: int, token: str):
 
 
 @app.websocket("/ws/chat/{channel_id}")
-async def chat_websocket(websocket: WebSocket, channel_id: int, token: str):
+async def chat_websocket(websocket: WebSocket, channel_id: str, token: str):
     from app.auth import decode_token
     from app.websocket.voice import get_chat_manager
     
@@ -63,7 +64,7 @@ async def chat_websocket(websocket: WebSocket, channel_id: int, token: str):
         await websocket.close()
         return
     
-    user_id = payload.get("sub")
+    user_id = str(payload.get("sub"))  # Convert to string to match JWT
     chat_manager = get_chat_manager()
     
     try:

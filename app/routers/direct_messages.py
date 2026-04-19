@@ -9,6 +9,7 @@ from app.database import User, DirectMessage, DMAttachment
 from app.auth import get_current_user
 from app.schemas import DirectMessageCreate, DirectMessageResponse
 from app.config import settings
+from app.websocket.voice import get_chat_manager
 
 router = APIRouter(prefix="/direct-messages", tags=["direct-messages"])
 
@@ -30,6 +31,8 @@ async def get_conversations(current_user: User = Depends(get_current_user), db: 
 
 @router.get("/{user_id}", response_model=List[DirectMessageResponse])
 async def get_messages_with_user(user_id: int, limit: int = 50, offset: int = 0, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.schemas import DirectMessageResponse
+    
     other_user = db.query(User).filter(User.id == user_id).first()
     if not other_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -39,7 +42,22 @@ async def get_messages_with_user(user_id: int, limit: int = 50, offset: int = 0,
         ((DirectMessage.user1_id == user_id) & (DirectMessage.user2_id == current_user.id))
     ).order_by(DirectMessage.created_at.desc()).offset(offset).limit(limit).all()
     
-    return messages
+    result = []
+    for msg in messages:
+        attachments = db.query(DMAttachment).filter(DMAttachment.message_id == msg.id).all()
+        msg_data = DirectMessageResponse(
+            id=msg.id,
+            content=msg.content,
+            message_type=msg.message_type,
+            user1_id=msg.user1_id,
+            user2_id=msg.user2_id,
+            created_at=msg.created_at,
+            is_read=msg.is_read,
+            attachments=[{"id": a.id, "filename": a.filename, "file_path": a.file_path, "file_type": a.file_type} for a in attachments]
+        )
+        result.append(msg_data)
+    
+    return result
 
 
 @router.post("/", response_model=DirectMessageResponse)
@@ -57,6 +75,33 @@ async def send_message(message_data: DirectMessageCreate, current_user: User = D
     db.add(message)
     db.commit()
     db.refresh(message)
+    
+    # Don't broadcast for file uploads (content is placeholder) - will broadcast after upload
+    if message_data.content and message_data.content.strip():
+        # Broadcast to recipient via WebSocket using a shared room based on both users
+        chat_manager = get_chat_manager()
+        user_ids = sorted([current_user.id, message_data.recipient_id])
+        room_key = f"dm_{user_ids[0]}_{user_ids[1]}"
+        print(f"Broadcasting DM to room: {room_key}, recipients: {chat_manager.chat_channel_connections.get(room_key, set())}")
+        await chat_manager.broadcast_to_channel(room_key, {
+            "type": "new_dm",
+            "message": {
+                "id": message.id,
+                "content": message.content,
+                "message_type": message.message_type,
+                "user1_id": message.user1_id,
+                "user2_id": message.user2_id,
+                "created_at": message.created_at.isoformat() if message.created_at else None,
+                "is_read": message.is_read
+            },
+            "from_user": {
+                "id": current_user.id,
+                "username": current_user.username,
+                "display_name": current_user.display_name,
+                "avatar_url": current_user.avatar_url
+            }
+        }, exclude_user=current_user.id)
+    
     return message
 
 
@@ -96,5 +141,45 @@ async def upload_attachment(message_id: int, file: UploadFile = File(...), curre
     )
     db.add(attachment)
     db.commit()
+    db.refresh(message)
     
-    return message
+    # Fetch the attachments to include in the broadcast and response
+    attachments = db.query(DMAttachment).filter(DMAttachment.message_id == message.id).all()
+    
+    # Broadcast the updated message with attachments
+    other_user_id = message.user2_id if message.user1_id == current_user.id else message.user1_id
+    user_ids = sorted([current_user.id, other_user_id])
+    room_key = f"dm_{user_ids[0]}_{user_ids[1]}"
+    chat_manager = get_chat_manager()
+    await chat_manager.broadcast_to_channel(room_key, {
+        "type": "new_dm",
+        "message": {
+            "id": message.id,
+            "content": message.content,
+            "message_type": message.message_type,
+            "user1_id": message.user1_id,
+            "user2_id": message.user2_id,
+            "created_at": message.created_at.isoformat() if message.created_at else None,
+            "is_read": message.is_read,
+            "attachments": [{"id": a.id, "filename": a.filename, "file_path": a.file_path, "file_type": a.file_type} for a in attachments]
+        },
+        "from_user": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "display_name": current_user.display_name,
+            "avatar_url": current_user.avatar_url
+        }
+    }, exclude_user=current_user.id)
+    
+    # Return message with attachments as dict
+    from app.schemas import DirectMessageResponse
+    return DirectMessageResponse(
+        id=message.id,
+        content=message.content,
+        message_type=message.message_type,
+        user1_id=message.user1_id,
+        user2_id=message.user2_id,
+        created_at=message.created_at,
+        is_read=message.is_read,
+        attachments=[{"id": a.id, "filename": a.filename, "file_path": a.file_path, "file_type": a.file_type} for a in attachments]
+    )

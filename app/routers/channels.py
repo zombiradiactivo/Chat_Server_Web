@@ -184,7 +184,8 @@ async def create_message(channel_id: int, message_data: MessageCreate, current_u
     db.commit()
     db.refresh(message)
     
-    await chat_manager.broadcast_to_channel(channel_id, {
+    channel_id_str = str(channel_id)
+    await chat_manager.broadcast_to_channel(channel_id_str, {
         "type": "new_message",
         "message": {
             "id": message.id,
@@ -201,6 +202,7 @@ async def create_message(channel_id: int, message_data: MessageCreate, current_u
             }
         }
     }, exclude_user=current_user.id)
+    print(f"Broadcast to channel {channel_id_str}, connections: {chat_manager.chat_channel_connections.get(channel_id_str, set())}")
     
     return message
 

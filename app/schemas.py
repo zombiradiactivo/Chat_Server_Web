@@ -31,6 +31,7 @@ class UserResponse(UserBase):
     id: int
     avatar_url: Optional[str] = None
     status: str
+    description: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -171,9 +172,11 @@ class DirectMessageResponse(BaseModel):
     id: int
     content: str
     message_type: str
-    sender_id: int
+    user1_id: int
+    user2_id: int
     created_at: datetime
     is_read: bool
+    attachments: Optional[List[dict]] = []
 
     class Config:
         from_attributes = True
@@ -258,3 +261,19 @@ class TokenResponse(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class FriendRequestCreate(BaseModel):
+    to_user_id: int
+
+
+class FriendRequestResponse(BaseModel):
+    id: int
+    from_user_id: int
+    to_user_id: int
+    status: str
+    created_at: datetime
+    from_user: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True

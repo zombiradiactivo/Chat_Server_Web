@@ -54,32 +54,39 @@ class ConnectionManager:
                 if user_id != exclude_user and user_id in self.voice_connections:
                     await self.voice_connections[user_id].send_json(message)
     
-    async def connect_chat_channel(self, websocket: WebSocket, user_id: int, channel_id: int):
+    async def connect_chat_channel(self, websocket: WebSocket, user_id: int, channel_id: str):
+        print(f"User {user_id} connecting to chat channel: {channel_id}")
         await websocket.accept()
         self.active_connections[user_id] = websocket
         if channel_id not in self.chat_channel_connections:
             self.chat_channel_connections[channel_id] = set()
         self.chat_channel_connections[channel_id].add(user_id)
         self.chat_user_connections[user_id] = channel_id
+        print(f"User {user_id} connected to {channel_id}. Channel now has: {list(self.chat_channel_connections[channel_id])}")
     
-    async def broadcast_to_channel(self, channel_id: int, message: dict, exclude_user: int = None):
+    async def broadcast_to_channel(self, channel_id: str, message: dict, exclude_user: int = None):
+        print(f"Broadcast to channel: {channel_id}, connections: {list(self.chat_channel_connections.get(channel_id, set()))}, active: {list(self.active_connections.keys())}")
+        exclude_user_str = str(exclude_user) if exclude_user is not None else None
         if channel_id in self.chat_channel_connections:
             for user_id in self.chat_channel_connections[channel_id]:
-                if user_id != exclude_user and user_id in self.active_connections:
-                    try:
-                        await self.active_connections[user_id].send_json(message)
-                    except:
-                        pass
+                if exclude_user_str is None or user_id != exclude_user_str:
+                    if user_id in self.active_connections:
+                        try:
+                            await self.active_connections[user_id].send_json(message)
+                            print(f"Sent message to user {user_id}")
+                        except Exception as e:
+                            print(f"Error sending to user {user_id}: {e}")
     
-    def disconnect_chat_channel(self, user_id: int, channel_id: int = None):
-        if user_id in self.active_connections:
-            del self.active_connections[user_id]
+    def disconnect_chat_channel(self, user_id: int, channel_id: str = None):
+        user_id_str = str(user_id)
+        if user_id_str in self.active_connections:
+            del self.active_connections[user_id_str]
         if channel_id is None:
-            channel_id = self.chat_user_connections.get(user_id)
+            channel_id = self.chat_user_connections.get(user_id_str)
         if channel_id and channel_id in self.chat_channel_connections:
-            self.chat_channel_connections[channel_id].discard(user_id)
-        if user_id in self.chat_user_connections:
-            del self.chat_user_connections[user_id]
+            self.chat_channel_connections[channel_id].discard(user_id_str)
+        if user_id_str in self.chat_user_connections:
+            del self.chat_user_connections[user_id_str]
 
 
 voice_manager = ConnectionManager()
