@@ -43,7 +43,8 @@ Stores user accounts.
 | hashed_password | VARCHAR(255) | NOT NULL | Bcrypt hash |
 | avatar_url | VARCHAR(500) | NULL | Profile image path |
 | display_name | VARCHAR(100) | NULL | Display name |
-| status | VARCHAR(50) | DEFAULT 'offline' | online/offline/dnd |
+| description | TEXT | NULL | User description |
+| status | VARCHAR(50) | DEFAULT 'online' | online/offline/busy/away |
 | created_at | DATETIME | DEFAULT NOW | Creation timestamp |
 | updated_at | DATETIME | UPDATED NOW | Last update |
 
@@ -240,7 +241,21 @@ Server invitation codes.
 
 ---
 
-### 12. voice_sessions
+### 12. friend_requests
+
+Friend requests between users.
+
+| Column | Type | Constraints | Description |
+|--------|------|------------|------------|
+| id | INTEGER | PK | Auto-increment |
+| from_user_id | INTEGER | FK → users.id, NOT NULL | Sender |
+| to_user_id | INTEGER | FK → users.id, NOT NULL | Recipient |
+| status | VARCHAR(20) | DEFAULT 'pending' | pending/accepted/rejected |
+| created_at | DATETIME | DEFAULT NOW | Request timestamp |
+
+---
+
+### 13. voice_sessions
 
 Active voice channel sessions.
 
@@ -255,7 +270,7 @@ Active voice channel sessions.
 
 ---
 
-### 13. custom_apps
+### 14. custom_apps
 
 Custom applications/CLI tools.
 
@@ -273,7 +288,7 @@ Custom applications/CLI tools.
 
 ---
 
-### 14. terminal_sessions
+### 15. terminal_sessions
 
 Active terminal sessions.
 
@@ -288,7 +303,7 @@ Active terminal sessions.
 
 ---
 
-### 15. terminal_output
+### 16. terminal_output
 
 Terminal session output history.
 

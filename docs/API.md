@@ -45,6 +45,7 @@ Response:
   "display_name": "string",
   "avatar_url": null,
   "status": "offline",
+  "description": null,
   "created_at": "2024-01-01T00:00:00"
 }
 ```
@@ -85,7 +86,8 @@ Response:
   "email": "user@example.com",
   "display_name": "string",
   "avatar_url": "/media/images/abc123.jpg",
-  "status": "offline",
+  "status": "offline|online|busy|away",
+  "description": "string",
   "created_at": "2024-01-01T00:00:00"
 }
 ```
@@ -101,7 +103,8 @@ Request:
 {
   "display_name": "string (optional)",
   "avatar_url": "string (optional)",
-  "status": "string (optional)"
+  "status": "offline|online|busy|away (optional)",
+  "description": "string (optional)"
 }
 ```
 
@@ -137,8 +140,7 @@ Request:
 {
   "name": "string",
   "description": "string (optional)",
-  "image_url": "string (optional)",
-  "encryption_mode": "database" | "e2e"
+  "image_url": "string (optional)"
 }
 ```
 
@@ -150,7 +152,6 @@ Response:
   "description": "A cool server",
   "image_url": null,
   "invite_code": "abc123def456",
-  "encryption_mode": "database",
   "owner_id": 1,
   "created_at": "2024-01-01T00:00:00",
   "channels": [...]
@@ -204,7 +205,7 @@ Response: `{"message": "Server deleted"}`
 GET /servers/{server_id}/members
 ```
 
-Response: Array of ServerMember objects
+Response: Array of ServerMember objects with user info and status
 
 #### Join Server
 
@@ -465,11 +466,62 @@ Request:
 file: (file to upload)
 ```
 
-Response: DirectMessage object
+Response: DirectMessage object with attachment
 
 ---
 
-### 7. Invitations (`/invitations`)
+### 7. Friends (`/friends`)
+
+#### Send Friend Request
+
+```
+POST /friends
+```
+
+Request:
+```json
+{
+  "to_user_id": 2
+}
+```
+
+Response: FriendRequest object
+
+#### Get Pending Friend Requests
+
+```
+GET /friends/requests
+```
+
+Response: Array of FriendRequest objects
+
+#### Get Friends List
+
+```
+GET /friends
+```
+
+Response: Array of friend objects with user info and status
+
+#### Accept Friend Request
+
+```
+PUT /friends/{request_id}/accept
+```
+
+Response: FriendRequest object
+
+#### Reject Friend Request
+
+```
+PUT /friends/{request_id}/reject
+```
+
+Response: FriendRequest object
+
+---
+
+### 8. Invitations (`/invitations`)
 
 #### Create Invitation
 
@@ -532,7 +584,7 @@ Response: `{"message": "Invitation deleted"}`
 
 ---
 
-### 8. Custom Apps (`/custom-apps`)
+### 9. Custom Apps (`/custom-apps`)
 
 #### Create Custom App
 
@@ -639,7 +691,7 @@ Response: Array of TerminalOutput objects
 
 ---
 
-### 9. Media (`/media`)
+### 10. Media (`/media`)
 
 #### Get Media File
 
@@ -685,8 +737,12 @@ Messages:
 ws://host/ws/chat/{channel_id}?token={jwt_token}
 ```
 
+For server channels: Use channel_id as integer (e.g., `/ws/chat/1`)
+For DMs: Use sorted user IDs room key (e.g., `/ws/chat/1_2`)
+
 Messages:
-- Real-time message updates
+- `new_message`: New message in channel
+- `new_dm`: New direct message
 - `ping`/`pong`: Keep-alive
 
 ### Terminal
