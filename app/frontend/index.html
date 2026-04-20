@@ -1454,7 +1454,7 @@
 `;
             updateOnlineCount();
         }
-
+    }
         function updateOnlineCount() {
             if (!currentServer) return;
             fetch(`/api/servers/${currentServer.id}/members`, { headers: { 'Authorization': `Bearer ${token}` }})
@@ -1465,8 +1465,8 @@
                 });
         }
 
-        let serverMembersCache = [];
-        let currentMembersTab = 'online';
+        // Reuse previously-declared `serverMembersCache` and `currentMembersTab`
+        // (removed duplicate `let` declarations that caused a syntax error)
 
         async function showServerMembers() {
             if (!currentServer) return;
@@ -1895,7 +1895,7 @@ let pc = peerConnections[remoteUserId];
                 }
             };
 
-if (localStream) {
+            if (localStream) {
                 localStream.getTracks().forEach(track => {
                     if (!pc.getSenders().find(s => s.track === track)) {
                         pc.addTrack(track, localStream);
@@ -2369,7 +2369,7 @@ if (localStream) {
             });
         }
 
-async function loadCustomApps(channelId) {
+        async function loadCustomApps(channelId) {
             const res = await fetch(`/api/custom-apps/channel/${channelId}`, { headers: { 'Authorization': `Bearer ${token}` }});
             const apps = await res.json();
             const list = document.getElementById('messages');
@@ -2614,7 +2614,6 @@ async function loadCustomApps(channelId) {
 
         function handleTerminalKeypress(e) {
             if (e.key === 'Enter') sendTerminalCommand();
-        }
         }
     </script>
 </body>
